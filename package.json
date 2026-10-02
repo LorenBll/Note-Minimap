@@ -1,6 +1,6 @@
 {
 	"name": "note-minimap",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Adds a code-minimap style sidebar to each open markdown note for position awareness and fast scrolling.",
 	"main": "main.js",
 	"type": "module",
