@@ -1,7 +1,7 @@
 {
 	"id": "note-minimap",
 	"name": "Note-Minimap",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.13.7",
 	"description": "Adds a code-minimap style sidebar to each open markdown note for position awareness and fast scrolling.",
 	"author": "LorenBll",
