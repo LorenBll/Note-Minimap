@@ -11,13 +11,13 @@ Adds a code-minimap style sidebar to each open markdown note for position awaren
 - [Build](#build)
 - [Configuration](#configuration)
 - [Compatibility](#compatibility)
-- [License](#license)
+- [Licence](#licence)
 - [Support](#support)
 - [Author](#author)
 
 ## Features
 
-- Shows a minimap inside each open markdown note tab. The minimap renders the note's markdown lines as color-coded bars: headings by level, code blocks, quotes, lists, horizontal rules, emphasis, and plain text each have their own color, so the note's structure is visible at a glance.
+- Shows a minimap inside each open markdown note tab. The minimap renders the note's markdown lines as colour-coded bars: headings by level, code blocks, quotes, lists, horizontal rules, emphasis, and plain text each have their own colour, so the note's structure is visible at a glance.
   - Why: The note is often too long to fit on screen, and a minimap lets the user see structure and location without scrolling the note itself.
   - How: The minimap appears automatically in every open markdown tab. No command is needed.
 - Sizes each line bar by its text length. A short line renders as a short bar and a long line fills more of the minimap width, so the minimap reflects the actual shape of the note rather than uniform stripes.
@@ -32,15 +32,12 @@ Adds a code-minimap style sidebar to each open markdown note for position awaren
 - Scrolls with the mouse wheel or trackpad. Scrolling the wheel over the minimap scrolls the note by the corresponding amount, exactly as dragging the viewport would.
   - Why: The wheel is a familiar way to traverse long content, and the minimap makes each scroll gesture move through the note.
   - How: Hover the minimap and scroll the wheel (or swipe on a trackpad).
-- Navigates by dragging. Pressing and dragging on the minimap scrolls the note to the corresponding position. A viewport indicator tracks the current location on the minimap's representation, and the viewport aligns with the click position according to the Cursor placement setting.
+- Navigates by dragging. Pressing and dragging on the minimap scrolls the note to the corresponding position, with the viewport centred on the click point. A viewport indicator tracks the current location on the minimap's representation.
   - Why: Long notes take many wheel or scrollbar drags to traverse; dragging the minimap jumps to any part quickly.
   - How: Press anywhere on the minimap and drag. The note scrolls while dragging; when the viewport indicator reaches the top or bottom of the currently rendered portion, the minimap pans to reveal the following parts.
 - Returns to the idle view after dragging. When the drag ends, the full-note representation is no longer shown for navigation and the minimap returns to the viewport-with-context view, or stays on the full representation if the pointer is still over the minimap.
   - Why: After navigating, the minimap returns to its informative idle state instead of staying in navigation mode.
   - How: Release the pointer after dragging. Move the pointer away from the minimap to see the idle view.
-- Places the text caret after navigation in edit or source mode. When a drag ends, the caret moves to the end of a paragraph of the newly viewed section. Which paragraph is used is configurable.
-  - Why: After jumping to a distant part of the note, the user can start typing immediately instead of clicking to place the caret.
-  - How: Drag the minimap and release. The caret is placed at the end of the first, middle, or last paragraph of the viewed section, depending on the Cursor placement setting. Reading mode has no caret and is unaffected.
 - Positions and sizes the minimap from settings. The minimap can sit on the left or right side of the tab, and its width, height, and vertical offset from the top of the note area are adjustable.
   - Why: Each user works with a different editor width, note length, and preference for where auxiliary information belongs.
   - How: Change the settings in the plugin's settings tab. The minimaps of all open notes update immediately.
@@ -70,7 +67,6 @@ No additional configuration is required.
 4. Scroll the note to see the viewport indicator follow the current section.
 5. Hover over the minimap to preview the full note; scroll the wheel over it to traverse the note.
 6. Drag on the minimap to navigate; the note scrolls and the minimap pans as needed.
-7. In edit or source mode, release the drag and the caret moves to the end of a paragraph of the viewed section.
 
 ## Build
 
@@ -103,7 +99,6 @@ All settings are in the plugin's settings tab and take effect immediately.
 | `Minimap width` | `140` | Width of the minimap in pixels. |
 | `Minimap height` | `400` | Height of the minimap in pixels. The effective height never exceeds the available tab height above the vertical offset. |
 | `Vertical offset` | `30` | Offset of the minimap from the top border of the note area, in pixels. |
-| `Cursor placement` | `End of the middle paragraph` | Which paragraph of the viewed section receives the caret after a drag in edit or source mode: the first paragraph, the middle paragraph, or the last paragraph. This also determines how the viewport aligns with the click position when a drag starts. |
 
 ## Compatibility
 
@@ -111,7 +106,7 @@ All settings are in the plugin's settings tab and take effect immediately.
 - `isDesktopOnly` is `false`; the plugin does not use desktop-only APIs. Pointer and scroll interactions work on touch devices.
 - The minimap tracks note edits in source mode and note renders in reading mode.
 
-## License
+## Licence
 
 0BSD. See [LICENSE](LICENSE).
 

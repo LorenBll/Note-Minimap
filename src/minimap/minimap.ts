@@ -2,7 +2,6 @@ import { MarkdownView } from 'obsidian';
 import type NoteMinimapPlugin from '../main';
 import { EditHost, PreviewHost, type MinimapHost } from './host';
 import { buildRepresentation, lineAt, type Representation } from './representation';
-import { pickParagraph } from './paragraph';
 import { MinimapInteraction } from './interaction';
 
 const MIN_INDICATOR = 6;
@@ -114,27 +113,8 @@ export class Minimap {
 		this.winTop = v;
 	}
 
-	getCursorTarget(): 'first' | 'middle' | 'last' {
-		return this.plugin.settings.cursorTarget;
-	}
-
 	scrollToLine(line: number): void {
 		this.host.scrollToLine(line);
-	}
-
-	finishDrag(dragLine: number): void {
-		if (!this.host.isEditMode()) return;
-		const rep = this.rep;
-		if (!rep) return;
-		const n = rep.styles.length;
-		const vs = clamp(dragLine, 0, n - 1);
-		const count = Math.max(1, this.host.getVisibleLineCount());
-		const ve = Math.min(n - 1, vs + count - 1);
-		const lines = this.host.getSource().replace(/\r\n/g, '\n').split('\n');
-		const target = pickParagraph(lines, vs, ve, this.plugin.settings.cursorTarget);
-		if (target === null) return;
-		const ch = (lines[target] ?? '').length;
-		this.host.placeCursor(target, ch);
 	}
 
 	private applyGeometry(): void {

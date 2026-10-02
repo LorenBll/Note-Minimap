@@ -6,7 +6,6 @@ export interface NoteMinimapSettings {
 	width: number;
 	height: number;
 	yOffset: number;
-	cursorTarget: 'first' | 'middle' | 'last';
 }
 
 export const DEFAULT_SETTINGS: NoteMinimapSettings = {
@@ -14,7 +13,6 @@ export const DEFAULT_SETTINGS: NoteMinimapSettings = {
 	width: 140,
 	height: 400,
 	yOffset: 30,
-	cursorTarget: 'middle',
 };
 
 export class NoteMinimapSettingTab extends PluginSettingTab {
@@ -73,20 +71,6 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 					step: 5,
 				},
 			},
-			{
-				name: 'Cursor placement',
-				desc: 'Where to place the text caret after navigating in edit or source mode.',
-				control: {
-					type: 'dropdown',
-					key: 'cursorTarget',
-					defaultValue: 'middle',
-					options: {
-						first: 'End of the first paragraph of the viewed section',
-						middle: 'End of the middle paragraph of the viewed section',
-						last: 'End of the last paragraph of the viewed section',
-					},
-				},
-			},
 		];
 	}
 
@@ -96,7 +80,6 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 		else if (key === 'width') settings.width = value as number;
 		else if (key === 'height') settings.height = value as number;
 		else if (key === 'yOffset') settings.yOffset = value as number;
-		else if (key === 'cursorTarget') settings.cursorTarget = value as NoteMinimapSettings['cursorTarget'];
 		this.plugin.updateSettings();
 		return this.plugin.saveSettings();
 	}

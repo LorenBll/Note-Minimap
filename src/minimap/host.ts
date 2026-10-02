@@ -13,7 +13,6 @@ export interface MinimapHost {
 	getVisibleLineCount(): number;
 	scrollToLine(line: number): void;
 	getSource(): string;
-	placeCursor(line: number, ch: number): void;
 	getScrollElement(): HTMLElement | null;
 	onScroll(cb: () => void): void;
 	offScroll(cb: () => void): void;
@@ -92,19 +91,6 @@ export class EditHost implements MinimapHost {
 		}
 	}
 
-	placeCursor(line: number, ch: number): void {
-		try {
-			const pos = { line, ch };
-			this.view.editor.setCursor(pos);
-			this.view.editor.scrollIntoView({
-				from: pos,
-				to: pos,
-			}, true);
-		} catch {
-			// ignore
-		}
-	}
-
 	onScroll(cb: () => void): void {
 		const el = this.getScrollElement();
 		if (!el) return;
@@ -177,10 +163,6 @@ export class PreviewHost implements MinimapHost {
 		} catch {
 			return '';
 		}
-	}
-
-	placeCursor(_line: number, _ch: number): void {
-		// Reading mode has no text cursor.
 	}
 
 	onScroll(cb: () => void): void {
