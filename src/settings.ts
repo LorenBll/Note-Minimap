@@ -134,6 +134,7 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 		const exclusionGroup = new SettingGroup(containerEl)
 			.setHeading('Exclusions')
 			.addClass('nm-exclusion-group');
+		exclusionGroup.listEl.addClass('nm-exclusion-list');
 		exclusionGroup.addSetting((setting) => {
 			setting.settingEl.addClass('nm-exclusion-setting');
 			setting

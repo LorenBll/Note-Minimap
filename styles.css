@@ -187,7 +187,7 @@
 }
 
 /* Settings: exclusion list as a removable tag cloud. */
-.setting-item.nm-exclusion-setting {
+.setting-item.nm-exclusion-setting.nm-exclusion-setting {
 	padding-bottom: 0;
 }
 
@@ -195,7 +195,13 @@
 	padding-bottom: 12px;
 }
 
+.nm-exclusion-list {
+	display: flex;
+	flex-direction: column;
+}
+
 .nm-exclusion-tags {
+	flex-basis: 100%;
 	display: flex;
 	flex-wrap: wrap;
 	align-content: flex-start;
