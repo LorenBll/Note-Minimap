@@ -181,23 +181,26 @@
 	box-shadow: 0 0 0 1px var(--color-red);
 }
 
-/* Settings: reserve the scrollbar gutter so the card width stays stable. */
-.nm-settings-scroll {
-	overflow-y: scroll;
+/* Settings: exclusion list as a removable tag cloud. */
+.setting-item.nm-exclusion-setting {
+	flex-wrap: wrap;
 }
 
-/* Settings: exclusion list as a removable tag cloud. */
 .setting-item.nm-exclusion-setting.nm-exclusion-setting {
 	padding-bottom: 0;
 }
 
-.nm-exclusion-group {
-	padding-bottom: 12px;
+.setting-item.nm-exclusion-setting .setting-item-info {
+	flex: 1 1 0;
+	min-width: 0;
 }
 
-.nm-exclusion-list {
-	display: flex;
-	flex-direction: column;
+.setting-item.nm-exclusion-setting .setting-item-control {
+	flex: 0 0 auto;
+}
+
+.nm-exclusion-group {
+	padding-bottom: 12px;
 }
 
 .nm-exclusion-tags {
@@ -206,7 +209,7 @@
 	flex-wrap: wrap;
 	align-content: flex-start;
 	gap: 8px;
-	margin: 8px 12px 0;
+	margin-top: 8px;
 	padding: 0 0 12px;
 	min-height: 0;
 	border: none;
