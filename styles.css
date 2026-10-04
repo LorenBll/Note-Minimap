@@ -176,9 +176,80 @@
 }
 
 /* Required-input validation error highlight. */
-.nm-input-error {
-	border-color: var(--color-red) !important;
-	box-shadow: 0 0 0 1px var(--color-red) !important;
+.nm-exclusion-input-wrap .nm-exclusion-input.nm-input-error {
+	border-color: var(--color-red);
+	box-shadow: 0 0 0 1px var(--color-red);
+}
+
+/* Settings: reserve the scrollbar gutter so the card width stays stable. */
+.nm-settings-scroll {
+	overflow-y: scroll;
+}
+
+/* Settings: exclusion list as a removable tag cloud. */
+.setting-item.nm-exclusion-setting {
+	padding-bottom: 0;
+}
+
+.nm-exclusion-group {
+	padding-bottom: 12px;
+}
+
+.nm-exclusion-tags {
+	display: flex;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	gap: 8px;
+	margin: 8px 12px 0;
+	padding: 0 0 12px;
+	min-height: 0;
+	border: none;
+	background: none;
+}
+
+.nm-exclusion-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.nm-exclusion-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+	padding: 4px 6px 4px 12px;
+	border-radius: 999px;
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+}
+
+.nm-exclusion-tag-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.nm-exclusion-tag-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 14px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.nm-exclusion-tag-remove:hover {
+	color: var(--color-red);
+	background-color: var(--background-modifier-hover);
 }
 
 /* Validation tooltip shown under the input while the error is active. */
