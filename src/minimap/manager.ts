@@ -37,7 +37,15 @@ export class MinimapManager {
 	}
 
 	updateSettings(): void {
-		for (const mm of this.minimaps.values()) mm.update();
+		this.reconcile();
+	}
+
+	private shouldShow(view: MarkdownView): boolean {
+		if (!this.plugin.settings.showInReadingMode && view.getMode() !== 'source') {
+			return false;
+		}
+		if (this.plugin.isExcluded(view.file?.path ?? '')) return false;
+		return true;
 	}
 
 	private reconcile(): void {
@@ -46,6 +54,14 @@ export class MinimapManager {
 			const view = leaf.view;
 			if (!(view instanceof MarkdownView)) continue;
 			seen.add(view);
+			if (!this.shouldShow(view)) {
+				const existing = this.minimaps.get(view);
+				if (existing) {
+					existing.detach();
+					this.minimaps.delete(view);
+				}
+				continue;
+			}
 			let mm = this.minimaps.get(view);
 			if (!mm || !mm.isAttached()) {
 				if (mm) mm.detach();

@@ -12,6 +12,8 @@ export interface MinimapHost {
 	getVisibleRange(): VisibleRange;
 	getVisibleLineCount(): number;
 	scrollToLine(line: number): void;
+	scrollToBottom(): void;
+	getBottomPadding(): number;
 	getSource(): string;
 	getScrollElement(): HTMLElement | null;
 	onScroll(cb: () => void): void;
@@ -81,6 +83,21 @@ export class EditHost implements MinimapHost {
 		const pos = doc.line(l + 1).from;
 		const block = cm.lineBlockAt(pos);
 		cm.scrollDOM.scrollTop = block.top;
+	}
+
+	scrollToBottom(): void {
+		const cm = getCM(this.view);
+		if (!cm) return;
+		cm.scrollDOM.scrollTop = cm.scrollDOM.scrollHeight;
+	}
+
+	getBottomPadding(): number {
+		const cm = getCM(this.view);
+		if (!cm) return 0;
+		const contentHeight = cm.contentHeight;
+		if (contentHeight <= 0) return 0;
+		const padTop = parseFloat(window.getComputedStyle(cm.contentDOM).paddingTop) || 0;
+		return Math.max(0, cm.scrollDOM.scrollHeight - contentHeight - padTop);
 	}
 
 	getSource(): string {
@@ -155,6 +172,25 @@ export class PreviewHost implements MinimapHost {
 		const max = sc.scrollHeight - sc.clientHeight;
 		const p = Math.max(0, Math.min(1, line / (total - 1)));
 		sc.scrollTop = p * max;
+	}
+
+	scrollToBottom(): void {
+		const sc = this.scroller();
+		if (!sc) return;
+		sc.scrollTop = sc.scrollHeight;
+	}
+
+	getBottomPadding(): number {
+		const sc = this.scroller();
+		if (!sc) return 0;
+		const scTop = sc.getBoundingClientRect().top;
+		const sizer = sc.querySelector('.markdown-preview-sizer');
+		const section = sizer?.querySelector('.markdown-preview-section');
+		const root = (section ?? sizer ?? sc) as HTMLElement;
+		const last = root.lastElementChild as HTMLElement | null;
+		if (!last) return 0;
+		const contentBottom = last.getBoundingClientRect().bottom - scTop;
+		return Math.max(0, sc.scrollHeight - contentBottom);
 	}
 
 	getSource(): string {

@@ -23,6 +23,8 @@ export class Minimap {
 	private rafId = 0;
 	private disposed = false;
 	private fullStripSource: string | null = null;
+	private resizeObserver: ResizeObserver | null = null;
+	private paddingEl: HTMLElement | null = null;
 
 	constructor(
 		private plugin: NoteMinimapPlugin,
@@ -47,6 +49,7 @@ export class Minimap {
 		this.interaction.bind();
 		this.applyGeometry();
 		this.render();
+		this.setupResizeObserver();
 	}
 
 	update(): void {
@@ -65,6 +68,7 @@ export class Minimap {
 			this.host.offScroll(this.onScroll);
 			this.host.onScroll(this.onScroll);
 		}
+		this.setupResizeObserver();
 		this.applyGeometry();
 		this.render();
 	}
@@ -76,6 +80,7 @@ export class Minimap {
 
 	detach(): void {
 		this.disposed = true;
+		this.teardownResizeObserver();
 		this.host.offScroll(this.onScroll);
 		this.interaction.unbind();
 		if (this.rafId) window.cancelAnimationFrame(this.rafId);
@@ -120,12 +125,34 @@ export class Minimap {
 	private applyGeometry(): void {
 		const s = this.plugin.settings;
 		const content = this.view.contentEl;
-		const maxH = Math.max(80, content.clientHeight - s.yOffset);
-		const height = Math.min(s.height, maxH);
+		const tabH = Math.max(1, content.clientHeight);
+		const yOffsetPx = (s.yOffset / 100) * tabH;
+		const availPx = (() => {
+			switch (s.verticalAnchor) {
+				case 'centre':
+					return Math.min(2 * yOffsetPx, 2 * (tabH - yOffsetPx));
+				case 'bottom':
+					return yOffsetPx;
+				default:
+					return tabH - yOffsetPx;
+			}
+		})();
+		const maxHPx = Math.max(80, availPx);
+		const heightPct = Math.min(s.height, (maxHPx / tabH) * 100);
+		const topPct = (() => {
+			switch (s.verticalAnchor) {
+				case 'centre':
+					return s.yOffset - heightPct / 2;
+				case 'bottom':
+					return s.yOffset - heightPct;
+				default:
+					return s.yOffset;
+			}
+		})();
 		content.setCssProps({
-			'--nm-width': `${s.width}px`,
-			'--nm-height': `${height}px`,
-			'--nm-top': `${s.yOffset}px`,
+			'--nm-width': `${s.width}%`,
+			'--nm-height': `${heightPct}%`,
+			'--nm-top': `${topPct}%`,
 		});
 		if (s.side === 'left') {
 			this.el.addClass('note-minimap-left');
@@ -141,6 +168,29 @@ export class Minimap {
 	}
 
 	private onScroll = (): void => {
+		this.scheduleRender();
+	};
+
+	private setupResizeObserver(): void {
+		this.teardownResizeObserver();
+		this.resizeObserver = new ResizeObserver(this.onResize);
+		this.resizeObserver.observe(this.view.contentEl);
+		const scrollEl = this.host.getScrollElement();
+		if (scrollEl && scrollEl !== this.view.contentEl) {
+			this.resizeObserver.observe(scrollEl);
+		}
+	}
+
+	private teardownResizeObserver(): void {
+		if (this.resizeObserver) {
+			this.resizeObserver.disconnect();
+			this.resizeObserver = null;
+		}
+	}
+
+	private onResize = (): void => {
+		if (this.disposed) return;
+		this.applyGeometry();
 		this.scheduleRender();
 	};
 
@@ -178,7 +228,7 @@ export class Minimap {
 		const n = rep.styles.length;
 		const range = this.host.getVisibleRange();
 		const vs = clamp(range.start, 0, n - 1);
-		const maxWin = Math.max(0, rep.total - H);
+		const maxWin = Math.max(0, this.stripTotal() - H);
 		this.winTop = clamp((rep.cum[vs] ?? 0) - H * 0.4, 0, maxWin);
 		this.el.removeClass('note-minimap-dragging');
 		this.fullStripSource = null;
@@ -200,6 +250,7 @@ export class Minimap {
 				'--nm-line-width': `${width}px`,
 			});
 		}
+		this.renderPadding(false);
 		const ind = this.viewportIndicator(vs, H);
 		this.viewportEl.show();
 		this.viewportEl.setCssProps({
@@ -215,10 +266,10 @@ export class Minimap {
 		if (!this.interaction.isDragging) {
 			const range = this.host.getVisibleRange();
 			const vs = clamp(range.start, 0, n - 1);
-			const maxWin = Math.max(0, rep.total - H);
+			const maxWin = Math.max(0, this.stripTotal() - H);
 			this.winTop = clamp((rep.cum[vs] ?? 0) - H * 0.4, 0, maxWin);
 		}
-		const maxWin = Math.max(0, rep.total - H);
+		const maxWin = Math.max(0, this.stripTotal() - H);
 		this.winTop = clamp(this.winTop, 0, maxWin);
 		this.el.addClass('note-minimap-dragging');
 		if (this.fullStripSource !== this.lastSource) {
@@ -227,10 +278,11 @@ export class Minimap {
 		}
 		this.linesEl.setCssProps({
 			'--nm-strip-top': `${-this.winTop}px`,
-			'--nm-strip-height': `${rep.total}px`,
+			'--nm-strip-height': `${this.stripTotal()}px`,
 			'--nm-fade-top': `${this.winTop}px`,
 			'--nm-fade-bot': `${this.winTop + H}px`,
 		});
+		this.renderPadding(true);
 		const vs2 = this.interaction.isDragging
 			? clamp(this.interaction.currentDragLine, 0, n - 1)
 			: this.host.getVisibleRange().start;
@@ -250,10 +302,71 @@ export class Minimap {
 		const count = Math.max(1, this.host.getVisibleLineCount());
 		const ve = Math.min(n - 1, vs + count - 1);
 		const topPx = rep.cum[vs] ?? 0;
-		const botPx = (rep.cum[ve] ?? 0) + (rep.styles[ve]?.px ?? 2);
+		const botPx = this.extendIntoPadding((rep.cum[ve] ?? 0) + (rep.styles[ve]?.px ?? 2));
 		const indTop = clamp(topPx - this.winTop, 0, H - MIN_INDICATOR);
 		const indH = clamp(botPx - topPx, MIN_INDICATOR, H);
 		return { top: indTop, height: indH };
+	}
+
+	private padRep(): number {
+		const rep = this.rep;
+		if (!rep || rep.styles.length === 0) return 0;
+		const sc = this.host.getScrollElement();
+		if (!sc) return 0;
+		const padReal = this.host.getBottomPadding();
+		if (padReal <= 0) return 0;
+		const contentReal = Math.max(1, sc.scrollHeight - padReal);
+		return (padReal / contentReal) * rep.total;
+	}
+
+	private stripTotal(): number {
+		return (this.rep?.total ?? 0) + this.padRep();
+	}
+
+	getStripTotal(): number {
+		return this.stripTotal();
+	}
+
+	scrollToBottom(): void {
+		this.host.scrollToBottom();
+	}
+
+	private extendIntoPadding(botPx: number): number {
+		const rep = this.rep;
+		if (!rep) return botPx;
+		const sc = this.host.getScrollElement();
+		if (!sc) return botPx;
+		const padReal = this.host.getBottomPadding();
+		if (padReal <= 0) return botPx;
+		const padRep = this.padRep();
+		if (padRep <= 0) return botPx;
+		const contentReal = Math.max(1, sc.scrollHeight - padReal);
+		const visibleBottom = sc.scrollTop + sc.clientHeight;
+		if (visibleBottom <= contentReal) return botPx;
+		const frac = Math.min(1, (visibleBottom - contentReal) / padReal);
+		return rep.total + frac * padRep;
+	}
+
+	private renderPadding(stripCoords: boolean): void {
+		const rep = this.rep;
+		if (!rep) return;
+		const padRep = this.padRep();
+		let paddingEl = this.paddingEl;
+		if (!paddingEl) {
+			paddingEl = this.linesEl.createDiv({ cls: 'note-minimap-padding' });
+			this.paddingEl = paddingEl;
+		}
+		if (padRep <= 0 || rep.styles.length === 0) {
+			paddingEl.detach();
+			return;
+		}
+		if (paddingEl.parentElement !== this.linesEl) {
+			this.linesEl.appendChild(paddingEl);
+		}
+		paddingEl.setCssProps({
+			'--nm-pad-top': `${stripCoords ? rep.total : rep.total - this.winTop}px`,
+			'--nm-pad-height': `${padRep}px`,
+		});
 	}
 
 	private buildFullStrip(rep: Representation): void {

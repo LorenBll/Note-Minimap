@@ -101,12 +101,17 @@ export class MinimapInteraction {
 		const range = this.mm.getHost().getVisibleRange();
 		const vs = clamp(range.start, 0, n - 1);
 		const pxPerLine = rep.styles[0]?.px ?? 2;
-		const lineDelta = Math.round(e.deltaY / pxPerLine);
+		const lineDelta = Math.round((e.deltaY / pxPerLine) * this.speedFactor());
 		const target = clamp(vs + lineDelta, 0, n - 1);
 		this.dragLine = target;
 		this.mm.scrollToLine(target);
 		this.mm.render();
 	};
+
+	private speedFactor(): number {
+		const count = Math.max(1, this.mm.getHost().getVisibleLineCount());
+		return Math.max(0.25, Math.min(4, count / 20));
+	}
 
 	private applyDrag(): void {
 		const H = this.mm.getHeight();
@@ -115,17 +120,45 @@ export class MinimapInteraction {
 		const rect = this.mm.el.getBoundingClientRect();
 		const y = this.lastY - rect.top;
 		const yy = clamp(y, 0, H);
-		const maxRep = Math.max(0, rep.total - 1);
-		const clickRepY = clamp(this.mm.getWinTop() + y, 0, maxRep);
+		const maxRep = Math.max(0, this.mm.getStripTotal() - 1);
+		const dy = this.dampPointerY(y);
+		const clickRepY = clamp(this.mm.getWinTop() + dy, 0, maxRep);
 		const count = Math.max(1, this.mm.getHost().getVisibleLineCount());
 		const viewportPx = count * (rep.styles[0]?.px ?? 2);
 		const topRepY = clickRepY - viewportPx / 2;
-		const target = lineAt(rep.cum, clamp(topRepY, 0, maxRep));
-		this.dragLine = target;
-		this.mm.scrollToLine(target);
 		const indH = viewportPx;
 		const indTop = clamp(yy - indH / 2, 0, Math.max(0, H - indH));
-		this.mm.setWinTop(clamp((rep.cum[target] ?? 0) - indTop, 0, Math.max(0, rep.total - H)));
+		const total = rep.total;
+		if (topRepY >= total) {
+			this.dragLine = Math.max(0, rep.styles.length - 1);
+			this.mm.scrollToBottom();
+			this.mm.setWinTop(Math.max(0, this.mm.getStripTotal() - H));
+		} else {
+			const target = lineAt(rep.cum, clamp(topRepY, 0, total - 1));
+			this.dragLine = target;
+			this.mm.scrollToLine(target);
+			this.mm.setWinTop(
+				clamp((rep.cum[target] ?? 0) - indTop, 0, Math.max(0, this.mm.getStripTotal() - H)),
+			);
+		}
 		this.mm.render();
+	}
+
+	// Dampens the pointer position once it reaches the faded edge sections of
+	// the minimap, where continued dragging pans the strip. The panning speed is
+	// proportionate to the viewport size, so a small viewport pans slowly enough
+	// to track the location while a large one moves faster.
+	private dampPointerY(y: number): number {
+		const H = this.mm.getHeight();
+		const rep = this.mm.getRep();
+		if (!rep || H <= 0) return y;
+		const count = Math.max(1, this.mm.getHost().getVisibleLineCount());
+		const indH = count * (rep.styles[0]?.px ?? 2);
+		const pinTop = indH / 2;
+		const pinBottom = H - indH / 2;
+		const f = this.speedFactor();
+		if (y < pinTop) return pinTop + (y - pinTop) * f;
+		if (y > pinBottom) return pinBottom + (y - pinBottom) * f;
+		return y;
 	}
 }
