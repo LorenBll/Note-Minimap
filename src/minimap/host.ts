@@ -27,6 +27,42 @@ function getCM(view: MarkdownView): EditorView | null {
 	}
 }
 
+// A rendered reading-mode section, as tracked by Obsidian's preview renderer.
+// Each section covers a contiguous range of source lines and reports the
+// measured height it occupies once it has been laid out.
+interface PreviewSection {
+	el: HTMLElement;
+	start: { line: number } | null;
+	lines: number;
+	height: number;
+	computed: boolean;
+}
+
+interface PreviewRenderer {
+	sections: PreviewSection[];
+}
+
+function getPreviewRenderer(view: MarkdownView): PreviewRenderer | null {
+	try {
+		const pm = (view as unknown as { previewMode?: { renderer?: PreviewRenderer } }).previewMode;
+		return pm?.renderer ?? null;
+	} catch {
+		return null;
+	}
+}
+
+// Returns the index of the last line of a leading YAML frontmatter block, or
+// -1 when the source does not start with one.
+function frontmatterLastLine(source: string): number {
+	const lines = source.replace(/\r\n/g, '\n').split('\n');
+	if ((lines[0] ?? '').trim() !== '---') return -1;
+	for (let i = 1; i < lines.length; i++) {
+		const t = (lines[i] ?? '').trim();
+		if (t === '---' || t === '...') return i;
+	}
+	return -1;
+}
+
 export class EditHost implements MinimapHost {
 	private subscribedEl: HTMLElement | null = null;
 
@@ -230,6 +266,7 @@ export class EditHost implements MinimapHost {
 
 export class PreviewHost implements MinimapHost {
 	private subscribedEl: HTMLElement | null = null;
+	private geomContentHeight = 0;
 
 	constructor(private view: MarkdownView) {}
 
@@ -253,6 +290,10 @@ export class PreviewHost implements MinimapHost {
 		const sc = this.scroller();
 		const total = this.getTotalLines();
 		if (!sc || total <= 0) return 1;
+		if (this.geomContentHeight > 0) {
+			const avg = this.geomContentHeight / total;
+			return Math.max(1, Math.round(sc.clientHeight / Math.max(1, avg)));
+		}
 		const frac = sc.clientHeight / Math.max(1, sc.scrollHeight);
 		return Math.max(1, Math.round(frac * total));
 	}
@@ -260,35 +301,136 @@ export class PreviewHost implements MinimapHost {
 	getBottomPadding(): number {
 		const sc = this.scroller();
 		if (!sc) return 0;
-		const scTop = sc.getBoundingClientRect().top;
-		const sizer = sc.querySelector('.markdown-preview-sizer');
-		const section = sizer?.querySelector('.markdown-preview-section');
-		const root = (section ?? sizer ?? sc) as HTMLElement;
-		const last = root.lastElementChild as HTMLElement | null;
-		if (!last) return 0;
-		const contentBottom = last.getBoundingClientRect().bottom - scTop;
-		return Math.max(0, sc.scrollHeight - contentBottom);
+		if (this.geomContentHeight > 0) {
+			return Math.max(0, sc.scrollHeight - this.geomContentHeight);
+		}
+		return 0;
 	}
 
-	getLineGeometry(): LineGeometry | null {
-		const sc = this.scroller();
-		const total = this.getTotalLines();
-		if (!sc || total <= 0) return null;
-		const contentHeight = Math.max(1, sc.scrollHeight - this.getBottomPadding());
-		const unit = contentHeight / total;
+	// Region occupied by the rendered properties UI, in scroll coordinates, or
+	// null when the properties are shown as source or not rendered.
+	private propertiesRegion(sc: HTMLElement): { top: number; bottom: number } | null {
+		const el = this.view.contentEl.querySelector('.metadata-container');
+		if (!(el instanceof HTMLElement)) return null;
+		const rect = el.getBoundingClientRect();
+		if (rect.height <= 0) return null;
+		const scRect = sc.getBoundingClientRect();
+		return {
+			top: rect.top - scRect.top + sc.scrollTop,
+			bottom: rect.bottom - scRect.top + sc.scrollTop,
+		};
+	}
+
+	private uniformGeometry(total: number, contentHeight: number): LineGeometry {
+		const unit = Math.max(1, contentHeight) / Math.max(1, total);
 		const tops: number[] = new Array<number>(total);
 		const heights: number[] = new Array<number>(total);
 		for (let i = 0; i < total; i++) {
 			tops[i] = i * unit;
 			heights[i] = unit;
 		}
-		return { tops, heights, contentHeight, unitHeight: unit };
+		return { tops, heights, contentHeight: Math.max(1, contentHeight), unitHeight: unit };
+	}
+
+	// Maps each source line to the position and height of the rendered section
+	// that produced it, so the minimap matches the reading view's layout the
+	// same way the edit host matches the editor's. Frontmatter lines are mapped
+	// onto the rendered properties region when the properties are visible.
+	private sectionsGeometry(
+		renderer: PreviewRenderer | null,
+		sc: HTMLElement,
+		total: number,
+	): LineGeometry | null {
+		const sections = renderer?.sections;
+		if (!sections || sections.length === 0) return null;
+		const tops: number[] = new Array<number>(total).fill(0);
+		const heights: number[] = new Array<number>(total).fill(0);
+		let anyComputed = false;
+		let measuredLines = 0;
+		let measuredHeight = 0;
+		for (const s of sections) {
+			if (s.computed && s.lines > 0) {
+				measuredLines += s.lines;
+				measuredHeight += Math.max(0, s.height);
+			}
+		}
+		// Sections that have not been laid out yet fall back to the average
+		// height per line of the sections that have.
+		const fallbackUnit =
+			measuredLines > 0
+				? measuredHeight / measuredLines
+				: sc.scrollHeight / Math.max(1, total);
+		const scRect = sc.getBoundingClientRect();
+		// Reading mode renders through a virtual display, so off-screen sections
+		// are detached and cannot be measured. Accumulate the known heights and
+		// calibrate the origin against any section that is currently attached.
+		let origin: number | null = null;
+		let y = 0;
+		for (const s of sections) {
+			const lines = Math.max(0, s.lines | 0);
+			let h = Number.isFinite(s.height) ? Math.max(0, s.height) : 0;
+			if (s.computed) anyComputed = true;
+			if (origin === null && s.el && s.el.isConnected) {
+				origin = s.el.getBoundingClientRect().top - scRect.top + sc.scrollTop - y;
+			}
+			if (lines > 0) {
+				if (!s.computed && h <= 0) h = lines * fallbackUnit;
+				const start = s.start && Number.isFinite(s.start.line) ? s.start.line : 0;
+				const slice = h / lines;
+				for (let k = 0; k < lines; k++) {
+					const idx = start + k;
+					if (idx >= 0 && idx < total) {
+						tops[idx] = y + k * slice;
+						heights[idx] = slice;
+					}
+				}
+			}
+			y += h;
+		}
+		if (!anyComputed) return null;
+		const base = origin ?? 0;
+		for (let i = 0; i < total; i++) tops[i] = (tops[i] ?? 0) + base;
+		const contentHeight = Math.max(1, y);
+		const fmLast = frontmatterLastLine(this.getSource());
+		if (fmLast >= 0) {
+			const region = this.propertiesRegion(sc);
+			if (region && region.bottom > region.top) {
+				const count = Math.min(total, fmLast + 1);
+				const slice = (region.bottom - region.top) / count;
+				for (let k = 0; k < count; k++) {
+					tops[k] = region.top + k * slice;
+					heights[k] = slice;
+				}
+			}
+		}
+		return { tops, heights, contentHeight, unitHeight: contentHeight / total };
+	}
+
+	getLineGeometry(): LineGeometry | null {
+		const sc = this.scroller();
+		const total = this.getTotalLines();
+		if (!sc || total <= 0) return null;
+		const geometry =
+			this.sectionsGeometry(getPreviewRenderer(this.view), sc, total) ??
+			this.uniformGeometry(total, sc.scrollHeight);
+		this.geomContentHeight = geometry.contentHeight;
+		return geometry;
 	}
 
 	getGeometryVersion(): string {
 		const sc = this.scroller();
 		if (!sc) return '';
-		return `${sc.scrollHeight}|${sc.clientWidth}`;
+		const sections = getPreviewRenderer(this.view)?.sections ?? [];
+		let computed = 0;
+		let sum = 0;
+		for (const s of sections) {
+			if (s.computed) {
+				computed++;
+				sum += Math.round(Math.max(0, s.height));
+			}
+		}
+		const hasProperties = this.view.contentEl.querySelector('.metadata-container') ? 1 : 0;
+		return `${sc.clientWidth}|${sections.length}|${computed}|${sum}|${hasProperties}`;
 	}
 
 	getViewportTopPx(): number {
@@ -304,7 +446,8 @@ export class PreviewHost implements MinimapHost {
 	getContentHeightPx(): number {
 		const sc = this.scroller();
 		if (!sc) return 0;
-		return Math.max(1, sc.scrollHeight - this.getBottomPadding());
+		if (this.geomContentHeight > 0) return this.geomContentHeight;
+		return Math.max(1, sc.scrollHeight);
 	}
 
 	scrollToPx(y: number): void {
