@@ -1,5 +1,4 @@
 import type { Minimap } from './minimap';
-import { lineAt } from './representation';
 
 function clamp(v: number, lo: number, hi: number): number {
 	return Math.max(lo, Math.min(hi, v));
@@ -9,8 +8,8 @@ export class MinimapInteraction {
 	private dragging = false;
 	private hovering = false;
 	private lastY = 0;
-	private dragLine = 0;
 	private pointerId: number | null = null;
+	private dragInd = { top: 0, height: 0 };
 
 	constructor(private mm: Minimap) {}
 
@@ -44,8 +43,8 @@ export class MinimapInteraction {
 		return this.hovering;
 	}
 
-	get currentDragLine(): number {
-		return this.dragLine;
+	get dragIndicator(): { top: number; height: number } {
+		return this.dragInd;
 	}
 
 	private onPointerDown = (e: PointerEvent): void => {
@@ -94,17 +93,10 @@ export class MinimapInteraction {
 
 	private onWheel = (e: WheelEvent): void => {
 		const rep = this.mm.getRep();
-		if (!rep) return;
+		if (!rep || rep.scale <= 0) return;
 		e.preventDefault();
-		const n = rep.styles.length;
-		if (n <= 0) return;
-		const range = this.mm.getHost().getVisibleRange();
-		const vs = clamp(range.start, 0, n - 1);
-		const pxPerLine = rep.styles[0]?.px ?? 2;
-		const lineDelta = Math.round((e.deltaY / pxPerLine) * this.speedFactor());
-		const target = clamp(vs + lineDelta, 0, n - 1);
-		this.dragLine = target;
-		this.mm.scrollToLine(target);
+		const delta = (e.deltaY / rep.scale) * this.speedFactor();
+		this.mm.scrollToPx(this.mm.getViewportTopPx() + delta);
 		this.mm.render();
 	};
 
@@ -116,31 +108,21 @@ export class MinimapInteraction {
 	private applyDrag(): void {
 		const H = this.mm.getHeight();
 		const rep = this.mm.getRep();
-		if (!rep || H <= 0) return;
+		if (!rep || H <= 0 || rep.scale <= 0) return;
 		const rect = this.mm.el.getBoundingClientRect();
 		const y = this.lastY - rect.top;
 		const yy = clamp(y, 0, H);
-		const maxRep = Math.max(0, this.mm.getStripTotal() - 1);
-		const dy = this.dampPointerY(y);
-		const clickRepY = clamp(this.mm.getWinTop() + dy, 0, maxRep);
-		const count = Math.max(1, this.mm.getHost().getVisibleLineCount());
-		const viewportPx = count * (rep.styles[0]?.px ?? 2);
-		const topRepY = clickRepY - viewportPx / 2;
-		const indH = viewportPx;
+		const vpRep = this.mm.getViewportRepHeight();
+		const indH = clamp(vpRep, 1, H);
+		const dy = this.dampPointerY(y, vpRep);
+		const strip = this.mm.getStripTotal();
+		const clickRepY = clamp(this.mm.getWinTop() + dy, 0, Math.max(0, strip - 1));
+		const topRepY = clickRepY - vpRep / 2;
 		const indTop = clamp(yy - indH / 2, 0, Math.max(0, H - indH));
-		const total = rep.total;
-		if (topRepY >= total) {
-			this.dragLine = Math.max(0, rep.styles.length - 1);
-			this.mm.scrollToBottom();
-			this.mm.setWinTop(Math.max(0, this.mm.getStripTotal() - H));
-		} else {
-			const target = lineAt(rep.cum, clamp(topRepY, 0, total - 1));
-			this.dragLine = target;
-			this.mm.scrollToLine(target);
-			this.mm.setWinTop(
-				clamp((rep.cum[target] ?? 0) - indTop, 0, Math.max(0, this.mm.getStripTotal() - H)),
-			);
-		}
+		this.dragInd = { top: indTop, height: indH };
+		this.mm.scrollToPx(topRepY / rep.scale);
+		const actualTopRep = this.mm.getViewportTopPx() * rep.scale;
+		this.mm.setWinTop(clamp(actualTopRep - indTop, 0, Math.max(0, strip - H)));
 		this.mm.render();
 	}
 
@@ -148,14 +130,11 @@ export class MinimapInteraction {
 	// the minimap, where continued dragging pans the strip. The panning speed is
 	// proportionate to the viewport size, so a small viewport pans slowly enough
 	// to track the location while a large one moves faster.
-	private dampPointerY(y: number): number {
+	private dampPointerY(y: number, vpRep: number): number {
 		const H = this.mm.getHeight();
-		const rep = this.mm.getRep();
-		if (!rep || H <= 0) return y;
-		const count = Math.max(1, this.mm.getHost().getVisibleLineCount());
-		const indH = count * (rep.styles[0]?.px ?? 2);
-		const pinTop = indH / 2;
-		const pinBottom = H - indH / 2;
+		if (H <= 0 || vpRep >= H) return y;
+		const pinTop = vpRep / 2;
+		const pinBottom = H - vpRep / 2;
 		const f = this.speedFactor();
 		if (y < pinTop) return pinTop + (y - pinTop) * f;
 		if (y > pinBottom) return pinBottom + (y - pinBottom) * f;

@@ -17,15 +17,18 @@ Adds a code-minimap style sidebar to each open markdown note for position awaren
 
 ## Features
 
-- Shows a minimap inside each open markdown note tab. The minimap renders the note's markdown lines as colour-coded bars: headings by level, code blocks, quotes, lists, horizontal rules, emphasis, and plain text each have their own colour, so the note's structure is visible at a glance.
+- Shows a minimap inside each open markdown note tab. The minimap renders the note's markdown lines as colour-coded bars: file properties (YAML frontmatter), headings by level, code blocks, quotes, lists, horizontal rules, emphasis, and plain text each have their own colour, so the note's structure is visible at a glance.
   - Why: The note is often too long to fit on screen, and a minimap lets the user see structure and location without scrolling the note itself.
   - How: The minimap appears automatically in every open markdown tab. No command is needed.
 - Sizes each line bar by its text length. A short line renders as a short bar and a long line fills more of the minimap width, so the minimap reflects the actual shape of the note rather than uniform stripes.
   - Why: Uniform bars hide the difference between sparse and dense regions of the note.
   - How: Nothing to configure; the bar width follows the line's character count automatically.
+- Scales each line's vertical size to its rendered height. A line that wraps onto several visual rows occupies proportionally more vertical space, and a heading occupies more than a plain line, so the minimap's vertical positions match the note's on-screen layout instead of collapsing every source line to one stripe.
+  - Why: A fixed-height stripe per source line compresses wrapped lines into a single line and stops the minimap from corresponding to what is on screen.
+  - How: Nothing to configure; the vertical scale follows the rendered line heights automatically.
 - Displays the current viewport with surrounding context in idle state. While the note is not being navigated, the minimap shows the currently visible section together with some adjacent lines above and below it, framed by the viewport indicator. At the very top or bottom of the note the absent side naturally has no context.
   - Why: The user can see which section of the note is on screen and how it relates to the surrounding content.
-  - How: Scroll the note; the minimap updates live to follow the visible section. Resizing the note tab re-computes the viewport in real time, without needing to hover over the minimap.
+  - How: Scroll the note; the minimap updates live to follow the visible section. The viewport indicator tracks the note tab's scroll position and height exactly, so the content at the top of the screen is the content at the top of the indicator. Resizing the note tab re-computes the viewport in real time, without needing to hover over the minimap.
 - Shows the scrollable space beyond the end of the note. Obsidian lets a note scroll past its last line so the cursor line can stay centred; the minimap represents this extra space as a striped region at the bottom of the representation, hatched with 45° oblique lines, and the viewport indicator extends into it when the note is scrolled there.
   - Why: The note's scroll range is larger than its content; a minimap that ignored the empty tail would misrepresent the viewport position near the end.
   - How: Scroll the note past its last line. The striped region and the viewport indicator reflect the extra space automatically.

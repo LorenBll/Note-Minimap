@@ -17,7 +17,6 @@
 	height: var(--nm-height, 60%);
 	z-index: 30;
 	overflow: hidden;
-	border: 1px solid var(--background-modifier-border);
 	user-select: none;
 	-webkit-user-select: none;
 	cursor: pointer;
@@ -158,6 +157,11 @@
 .note-minimap-line.nm-em {
 	background: #e5c07b;
 	opacity: 0.6;
+}
+
+.note-minimap-line.nm-frontmatter {
+	background: #9aa5b1;
+	opacity: 0.75;
 }
 
 /* Settings: exclusion list and required-input validation. */

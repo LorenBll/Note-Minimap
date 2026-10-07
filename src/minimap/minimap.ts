@@ -6,6 +6,7 @@ import { MinimapInteraction } from './interaction';
 
 const MIN_INDICATOR = 6;
 const CHAR_PX = 1.5;
+const CONTEXT_ANCHOR = 0.4;
 
 function clamp(v: number, lo: number, hi: number): number {
 	return Math.max(lo, Math.min(hi, v));
@@ -19,6 +20,7 @@ export class Minimap {
 	private interaction: MinimapInteraction;
 	private rep: Representation | null = null;
 	private lastSource: string | null = null;
+	private geomVersion = '';
 	private winTop = 0;
 	private rafId = 0;
 	private disposed = false;
@@ -63,6 +65,7 @@ export class Minimap {
 			this.host = this.makeHost();
 			this.host.onScroll(this.onScroll);
 			this.lastSource = null;
+			this.geomVersion = '';
 			this.winTop = 0;
 		} else {
 			this.host.offScroll(this.onScroll);
@@ -118,8 +121,21 @@ export class Minimap {
 		this.winTop = v;
 	}
 
-	scrollToLine(line: number): void {
-		this.host.scrollToLine(line);
+	getViewportTopPx(): number {
+		return this.host.getViewportTopPx();
+	}
+
+	getViewportRepHeight(): number {
+		const rep = this.rep;
+		return rep ? this.host.getViewportHeightPx() * rep.scale : 0;
+	}
+
+	getContentRep(): number {
+		return this.rep?.total ?? 0;
+	}
+
+	scrollToPx(y: number): void {
+		this.host.scrollToPx(y);
 	}
 
 	private applyGeometry(): void {
@@ -202,34 +218,68 @@ export class Minimap {
 		});
 	}
 
-	render(): void {
-		if (this.disposed) return;
+	private ensureRep(): Representation {
 		const src = this.host.getSource();
-		if (src !== this.lastSource) {
+		const version = this.host.getGeometryVersion();
+		const interacting = this.interaction.isDragging || this.interaction.isHovering;
+		if (
+			!this.rep ||
+			src !== this.lastSource ||
+			(!interacting && version !== this.geomVersion)
+		) {
+			this.rep = buildRepresentation(src, this.host.getLineGeometry());
 			this.lastSource = src;
-			this.rep = buildRepresentation(src);
-			this.winTop = 0;
+			this.geomVersion = version;
 			this.fullStripSource = null;
 		}
-		if (!this.rep || this.rep.styles.length === 0) {
+		return this.rep;
+	}
+
+	render(): void {
+		if (this.disposed) return;
+		const H = this.el.clientHeight;
+		if (H <= 0) return;
+		const rep = this.ensureRep();
+		if (!rep || rep.styles.length === 0) {
 			this.linesEl.empty();
 			this.viewportEl.hide();
 			return;
 		}
-		const H = this.el.clientHeight;
-		if (H <= 0) return;
 		if (this.interaction.isDragging || this.interaction.isHovering) this.renderDrag(H);
 		else this.renderIdle(H);
+	}
+
+	private viewportTopRep(): number {
+		const rep = this.rep;
+		if (!rep) return 0;
+		return this.host.getViewportTopPx() * rep.scale;
+	}
+
+	private viewportBottomRep(): number {
+		const rep = this.rep;
+		if (!rep) return 0;
+		const top = this.host.getViewportTopPx();
+		const bottom = top + this.host.getViewportHeightPx();
+		const content = this.host.getContentHeightPx();
+		if (bottom <= content) return bottom * rep.scale;
+		const padRep = this.padRep();
+		return rep.total + Math.min(padRep, (bottom - content) * rep.scale);
+	}
+
+	private viewportIndicator(H: number): { top: number; height: number } {
+		const vpTop = this.viewportTopRep();
+		const vpBot = this.viewportBottomRep();
+		const indTop = clamp(vpTop - this.winTop, 0, Math.max(0, H - MIN_INDICATOR));
+		const indH = clamp(vpBot - vpTop, MIN_INDICATOR, H);
+		return { top: indTop, height: indH };
 	}
 
 	private renderIdle(H: number): void {
 		const rep = this.rep;
 		if (!rep) return;
 		const n = rep.styles.length;
-		const range = this.host.getVisibleRange();
-		const vs = clamp(range.start, 0, n - 1);
 		const maxWin = Math.max(0, this.stripTotal() - H);
-		this.winTop = clamp((rep.cum[vs] ?? 0) - H * 0.4, 0, maxWin);
+		this.winTop = clamp(this.viewportTopRep() - H * CONTEXT_ANCHOR, 0, maxWin);
 		this.el.removeClass('note-minimap-dragging');
 		this.fullStripSource = null;
 		this.linesEl.setCssProps({
@@ -240,18 +290,18 @@ export class Minimap {
 		const endLine = lineAt(rep.cum, this.winTop + H);
 		this.linesEl.empty();
 		const W = this.el.clientWidth;
-		for (let i = startLine; i <= endLine; i++) {
+		for (let i = startLine; i <= endLine && i < n; i++) {
 			const bar = this.linesEl.createDiv({ cls: `note-minimap-line ${rep.styles[i]?.cls ?? ''}` });
 			const top = (rep.cum[i] ?? 0) - this.winTop;
 			const width = Math.min(W, Math.max(2, (rep.styles[i]?.len ?? 0) * CHAR_PX));
 			bar.setCssProps({
 				'--nm-line-top': `${top}px`,
-				'--nm-line-height': `${rep.styles[i]?.px ?? 2}px`,
+				'--nm-line-height': `${rep.sizes[i] ?? 2}px`,
 				'--nm-line-width': `${width}px`,
 			});
 		}
 		this.renderPadding(false);
-		const ind = this.viewportIndicator(vs, H);
+		const ind = this.viewportIndicator(H);
 		this.viewportEl.show();
 		this.viewportEl.setCssProps({
 			'--nm-vp-top': `${ind.top}px`,
@@ -262,12 +312,9 @@ export class Minimap {
 	private renderDrag(H: number): void {
 		const rep = this.rep;
 		if (!rep) return;
-		const n = rep.styles.length;
 		if (!this.interaction.isDragging) {
-			const range = this.host.getVisibleRange();
-			const vs = clamp(range.start, 0, n - 1);
 			const maxWin = Math.max(0, this.stripTotal() - H);
-			this.winTop = clamp((rep.cum[vs] ?? 0) - H * 0.4, 0, maxWin);
+			this.winTop = clamp(this.viewportTopRep() - H * CONTEXT_ANCHOR, 0, maxWin);
 		}
 		const maxWin = Math.max(0, this.stripTotal() - H);
 		this.winTop = clamp(this.winTop, 0, maxWin);
@@ -283,10 +330,9 @@ export class Minimap {
 			'--nm-fade-bot': `${this.winTop + H}px`,
 		});
 		this.renderPadding(true);
-		const vs2 = this.interaction.isDragging
-			? clamp(this.interaction.currentDragLine, 0, n - 1)
-			: this.host.getVisibleRange().start;
-		const ind = this.viewportIndicator(vs2, H);
+		const ind = this.interaction.isDragging
+			? this.interaction.dragIndicator
+			: this.viewportIndicator(H);
 		this.viewportEl.show();
 		this.viewportEl.setCssProps({
 			'--nm-vp-top': `${ind.top}px`,
@@ -294,29 +340,12 @@ export class Minimap {
 		});
 	}
 
-	private viewportIndicator(startLine: number, H: number): { top: number; height: number } {
-		const rep = this.rep;
-		if (!rep) return { top: 0, height: H };
-		const n = rep.styles.length;
-		const vs = clamp(startLine, 0, n - 1);
-		const count = Math.max(1, this.host.getVisibleLineCount());
-		const ve = Math.min(n - 1, vs + count - 1);
-		const topPx = rep.cum[vs] ?? 0;
-		const botPx = this.extendIntoPadding((rep.cum[ve] ?? 0) + (rep.styles[ve]?.px ?? 2));
-		const indTop = clamp(topPx - this.winTop, 0, H - MIN_INDICATOR);
-		const indH = clamp(botPx - topPx, MIN_INDICATOR, H);
-		return { top: indTop, height: indH };
-	}
-
 	private padRep(): number {
 		const rep = this.rep;
 		if (!rep || rep.styles.length === 0) return 0;
-		const sc = this.host.getScrollElement();
-		if (!sc) return 0;
 		const padReal = this.host.getBottomPadding();
 		if (padReal <= 0) return 0;
-		const contentReal = Math.max(1, sc.scrollHeight - padReal);
-		return (padReal / contentReal) * rep.total;
+		return padReal * rep.scale;
 	}
 
 	private stripTotal(): number {
@@ -325,26 +354,6 @@ export class Minimap {
 
 	getStripTotal(): number {
 		return this.stripTotal();
-	}
-
-	scrollToBottom(): void {
-		this.host.scrollToBottom();
-	}
-
-	private extendIntoPadding(botPx: number): number {
-		const rep = this.rep;
-		if (!rep) return botPx;
-		const sc = this.host.getScrollElement();
-		if (!sc) return botPx;
-		const padReal = this.host.getBottomPadding();
-		if (padReal <= 0) return botPx;
-		const padRep = this.padRep();
-		if (padRep <= 0) return botPx;
-		const contentReal = Math.max(1, sc.scrollHeight - padReal);
-		const visibleBottom = sc.scrollTop + sc.clientHeight;
-		if (visibleBottom <= contentReal) return botPx;
-		const frac = Math.min(1, (visibleBottom - contentReal) / padReal);
-		return rep.total + frac * padRep;
 	}
 
 	private renderPadding(stripCoords: boolean): void {
@@ -377,7 +386,7 @@ export class Minimap {
 			const width = Math.min(W, Math.max(2, (rep.styles[i]?.len ?? 0) * CHAR_PX));
 			bar.setCssProps({
 				'--nm-line-top': `${rep.cum[i] ?? 0}px`,
-				'--nm-line-height': `${rep.styles[i]?.px ?? 2}px`,
+				'--nm-line-height': `${rep.sizes[i] ?? 2}px`,
 				'--nm-line-width': `${width}px`,
 			});
 		}
