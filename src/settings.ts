@@ -9,6 +9,9 @@ export interface NoteMinimapSettings {
 	yOffset: number;
 	verticalAnchor: 'top' | 'centre' | 'bottom';
 	showInReadingMode: boolean;
+	enlargeKey: 'shift' | 'control' | 'alt' | 'meta';
+	enlargePercent: number;
+	titleTooltipLevel: number;
 	excludedFiles: string[];
 }
 
@@ -19,6 +22,9 @@ export const DEFAULT_SETTINGS: NoteMinimapSettings = {
 	yOffset: 5,
 	verticalAnchor: 'top',
 	showInReadingMode: true,
+	enlargeKey: 'shift',
+	enlargePercent: 50,
+	titleTooltipLevel: 3,
 	excludedFiles: [],
 };
 
@@ -106,6 +112,52 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 			},
 			{
 				type: 'group',
+				heading: 'Enlargement',
+				cls: 'nm-enlargement-group',
+				items: [
+					{
+						name: 'Enlarge key',
+						desc: 'Modifier key that, while held, enlarges the minimap when the pointer is over it.',
+						control: {
+							type: 'dropdown',
+							key: 'enlargeKey',
+							defaultValue: 'shift',
+							options: {
+								shift: 'Shift',
+								control: 'Control',
+								alt: 'Alt',
+								meta: 'Meta',
+							},
+						},
+					},
+{
+				name: 'Enlargement',
+				desc: 'Percentage by which the minimap grows while the enlarge key is held. The enlarged minimap stays vertically centred and on its configured side.',
+				control: {
+					type: 'slider',
+					key: 'enlargePercent',
+					min: 10,
+					max: 200,
+					step: 5,
+					displayFormat: (v) => `${v}%`,
+				},
+			},
+			{
+				name: 'Title tooltip level',
+				desc: 'Deepest heading level that shows a tooltip while the minimap is enlarged. Level 3 shows tooltips for H1, H2, and H3 titles.',
+				control: {
+					type: 'slider',
+					key: 'titleTooltipLevel',
+					min: 1,
+					max: 6,
+					step: 1,
+					displayFormat: (v) => `H${v}`,
+				},
+			},
+		],
+	},
+			{
+				type: 'group',
 				heading: 'Exclusions',
 				cls: 'nm-exclusion-group',
 				items: [
@@ -142,6 +194,10 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 		else if (key === 'yOffset') settings.yOffset = value as number;
 		else if (key === 'verticalAnchor')
 			settings.verticalAnchor = value as NoteMinimapSettings['verticalAnchor'];
+		else if (key === 'enlargeKey')
+			settings.enlargeKey = value as NoteMinimapSettings['enlargeKey'];
+		else if (key === 'enlargePercent') settings.enlargePercent = value as number;
+		else if (key === 'titleTooltipLevel') settings.titleTooltipLevel = value as number;
 		this.plugin.updateSettings();
 		return this.plugin.saveSettings();
 	}

@@ -27,6 +27,27 @@ export class Minimap {
 	private fullStripSource: string | null = null;
 	private resizeObserver: ResizeObserver | null = null;
 	private paddingEl: HTMLElement | null = null;
+	private tooltipEl: HTMLElement | null = null;
+	private enlarged = false;
+	private enlargeFactor = 1;
+	private repZoom = 1;
+	private pendingBoxes: {
+		fw: number;
+		fh: number;
+		ft: number;
+		tw: number;
+		th: number;
+		tt: number;
+	} | null = null;
+	private elAnim: Animation | null = null;
+	private pendingAnimRaf = 0;
+	private manualWindow = false;
+	private baseWidth = 0;
+	private baseHeight = 0;
+	private baseTop = 0;
+	private largeWidth = 0;
+	private largeHeight = 0;
+	private largeTop = 0;
 
 	constructor(
 		private plugin: NoteMinimapPlugin,
@@ -84,6 +105,7 @@ export class Minimap {
 	detach(): void {
 		this.disposed = true;
 		this.teardownResizeObserver();
+		this.cancelEnlargeAnim();
 		this.host.offScroll(this.onScroll);
 		this.interaction.unbind();
 		if (this.rafId) window.cancelAnimationFrame(this.rafId);
@@ -109,8 +131,83 @@ export class Minimap {
 		return this.host;
 	}
 
+	getEnlargeKey(): 'shift' | 'control' | 'alt' | 'meta' {
+		return this.plugin.settings.enlargeKey;
+	}
+
+	getTitleTooltipLevel(): number {
+		return this.plugin.settings.titleTooltipLevel;
+	}
+
+	isEnlarged(): boolean {
+		return this.enlarged;
+	}
+
+	setEnlarged(v: boolean): void {
+		if (this.enlarged === v) return;
+		const prevZoom = this.enlarged ? this.enlargeFactor : 1;
+		const nextZoom = v ? this.enlargeFactor : 1;
+		const fromWidth = this.widthPxOf(this.enlarged ? this.largeWidth : this.baseWidth);
+		const fromHeight = this.heightPxOf(this.enlarged ? this.largeHeight : this.baseHeight);
+		const fromTop = this.enlarged ? this.largeTop : this.baseTop;
+		this.enlarged = v;
+		this.manualWindow = false;
+		this.el.toggleClass('note-minimap-enlarged', v);
+		if (!v) this.hideTitleTooltip();
+		if (prevZoom !== nextZoom) {
+			this.pendingBoxes = {
+				fw: fromWidth,
+				fh: fromHeight,
+				ft: fromTop,
+				tw: this.widthPxOf(v ? this.largeWidth : this.baseWidth),
+				th: this.heightPxOf(v ? this.largeHeight : this.baseHeight),
+				tt: v ? this.largeTop : this.baseTop,
+			};
+		}
+		// Rebuild the strip at the target zoom and set the container to its
+		// target size immediately; one animation on the whole minimap element
+		// then scales the box, bars, faded sections, and indicator together
+		// with no per-element timing to drift.
+		this.render();
+		this.applySizeStyles();
+		this.scheduleRender();
+	}
+
+	setManualWindow(v: boolean): void {
+		this.manualWindow = v;
+	}
+
+	// Scrolls the note so a heading line ends up at the top of the viewport.
+	// Returns false when the line is not a clickable title.
+	scrollToTitle(i: number): boolean {
+		const rep = this.rep;
+		const heading = rep?.styles[i]?.heading;
+		if (!rep || rep.scale <= 0 || !heading) return false;
+		if (heading.level > this.plugin.settings.titleTooltipLevel) return false;
+		this.host.scrollToPx((rep.cum[i] ?? 0) / rep.scale);
+		this.manualWindow = false;
+		this.scheduleRender();
+		return true;
+	}
+
+	showTitleTooltip(text: string, topPx: number): void {
+		const tip = this.tooltipEl ?? this.el.createDiv({ cls: 'note-minimap-title-tooltip' });
+		this.tooltipEl = tip;
+		if (tip.getText() !== text) tip.setText(text);
+		tip.style.top = `${topPx}px`;
+		tip.addClass('note-minimap-title-tooltip-visible');
+	}
+
+	hideTitleTooltip(): void {
+		this.tooltipEl?.removeClass('note-minimap-title-tooltip-visible');
+	}
+
 	getHeight(): number {
 		return this.el.clientHeight;
+	}
+
+	getBaseHeightPx(): number {
+		return (this.baseHeight / 100) * Math.max(1, this.view.contentEl.clientHeight);
 	}
 
 	getWinTop(): number {
@@ -165,11 +262,15 @@ export class Minimap {
 					return s.yOffset;
 			}
 		})();
-		content.setCssProps({
-			'--nm-width': `${s.width}%`,
-			'--nm-height': `${heightPct}%`,
-			'--nm-top': `${topPct}%`,
-		});
+		this.baseWidth = s.width;
+		this.baseHeight = heightPct;
+		this.baseTop = topPct;
+		const factor = 1 + Math.max(0, s.enlargePercent) / 100;
+		this.enlargeFactor = factor;
+		this.largeWidth = Math.min(100, s.width * factor);
+		this.largeHeight = Math.min(100, heightPct * factor);
+		this.largeTop = (100 - this.largeHeight) / 2;
+		content.setCssProps({ '--nm-width': `${s.width}%` });
 		if (s.side === 'left') {
 			this.el.addClass('note-minimap-left');
 			this.el.removeClass('note-minimap-right');
@@ -181,6 +282,16 @@ export class Minimap {
 			content.addClass('note-minimap-pad-right');
 			content.removeClass('note-minimap-pad-left');
 		}
+		this.applySizeStyles();
+	}
+
+	private applySizeStyles(): void {
+		const width = this.enlarged ? this.largeWidth : this.baseWidth;
+		const height = this.enlarged ? this.largeHeight : this.baseHeight;
+		const top = this.enlarged ? this.largeTop : this.baseTop;
+		this.el.style.width = `${width}%`;
+		this.el.style.height = `${height}%`;
+		this.el.style.top = `${top}%`;
 	}
 
 	private onScroll = (): void => {
@@ -191,6 +302,7 @@ export class Minimap {
 		this.teardownResizeObserver();
 		this.resizeObserver = new ResizeObserver(this.onResize);
 		this.resizeObserver.observe(this.view.contentEl);
+		this.resizeObserver.observe(this.el);
 		const scrollEl = this.host.getScrollElement();
 		if (scrollEl && scrollEl !== this.view.contentEl) {
 			this.resizeObserver.observe(scrollEl);
@@ -222,14 +334,17 @@ export class Minimap {
 		const src = this.host.getSource();
 		const version = this.host.getGeometryVersion();
 		const interacting = this.interaction.isDragging || this.interaction.isHovering;
+		const zoom = this.enlarged ? this.enlargeFactor : 1;
 		if (
 			!this.rep ||
 			src !== this.lastSource ||
+			this.repZoom !== zoom ||
 			(!interacting && version !== this.geomVersion)
 		) {
-			this.rep = buildRepresentation(src, this.host.getLineGeometry());
+			this.rep = buildRepresentation(src, this.host.getLineGeometry(), zoom);
 			this.lastSource = src;
 			this.geomVersion = version;
+			this.repZoom = zoom;
 			this.fullStripSource = null;
 		}
 		return this.rep;
@@ -247,6 +362,94 @@ export class Minimap {
 		}
 		if (this.interaction.isDragging || this.interaction.isHovering) this.renderDrag(H);
 		else this.renderIdle(H);
+		this.applyScaleAnimation();
+	}
+
+	// Animates the whole minimap element from the size, top, and zoom shown
+	// before an enlargement change to the new ones. Because a single animation
+	// scales the entire element, the bars, faded sections, and viewport
+	// indicator all grow in lockstep with the border. The enlarged strip is
+	// left at its scaled-down starting size for one frame before the animation
+	// begins, so the freshly built masked layer is rasterised at that size
+	// first and the fade's starting position does not jump on the first frame.
+	private applyScaleAnimation(): void {
+		const b = this.pendingBoxes;
+		if (!b) return;
+		this.pendingBoxes = null;
+		if (b.tw <= 0 || b.th <= 0) return;
+		if (
+			Math.abs(b.fw - b.tw) < 0.5 &&
+			Math.abs(b.fh - b.th) < 0.5 &&
+			Math.abs(b.ft - b.tt) < 0.01
+		) {
+			return;
+		}
+		const sx = b.fw / b.tw;
+		const sy = b.fh / b.th;
+		const ch = Math.max(1, this.view.contentEl.clientHeight);
+		const dy = ((b.ft - b.tt) / 100) * ch;
+		const originX = this.plugin.settings.side === 'left' ? 0 : b.tw;
+		this.cancelEnlargeAnim();
+		this.el.style.transformOrigin = `${originX}px 0px`;
+		const from = `translateY(${dy}px) scale(${sx}, ${sy})`;
+		this.el.style.transform = from;
+		this.el.addClass('note-minimap-animating');
+		this.pendingAnimRaf = window.requestAnimationFrame(() => {
+			this.pendingAnimRaf = 0;
+			if (this.disposed) return;
+			const anim = this.el.animate(
+				[{ transform: from }, { transform: 'none' }],
+				{ duration: 240, easing: 'ease', fill: 'both' },
+			);
+			this.elAnim = anim;
+			const cleanup = (): void => {
+				if (this.elAnim !== anim) return;
+				this.elAnim = null;
+				this.el.removeClass('note-minimap-animating');
+				this.el.style.removeProperty('transform');
+				this.el.style.removeProperty('transform-origin');
+			};
+			anim.onfinish = cleanup;
+			anim.oncancel = cleanup;
+		});
+	}
+
+	private cancelEnlargeAnim(): void {
+		if (this.pendingAnimRaf) {
+			window.cancelAnimationFrame(this.pendingAnimRaf);
+			this.pendingAnimRaf = 0;
+		}
+		const anim = this.elAnim;
+		if (anim) {
+			anim.onfinish = null;
+			anim.oncancel = null;
+			this.elAnim = null;
+			anim.cancel();
+			this.el.removeClass('note-minimap-animating');
+			this.el.style.removeProperty('transform');
+			this.el.style.removeProperty('transform-origin');
+		}
+	}
+
+	private widthPxOf(pct: number): number {
+		return (pct / 100) * Math.max(1, this.view.contentEl.clientWidth);
+	}
+
+	private heightPxOf(pct: number): number {
+		return (pct / 100) * Math.max(1, this.view.contentEl.clientHeight);
+	}
+
+	private targetWidthPx(): number {
+		const widthPct = this.enlarged ? this.largeWidth : this.baseWidth;
+		return (widthPct / 100) * Math.max(1, this.view.contentEl.clientWidth);
+	}
+
+	// The minimap's settled height, so window geometry stays consistent during
+	// the enlargement animation instead of chasing the transitioning pixel
+	// height and causing the mask and indicator to stutter.
+	targetHeightPx(): number {
+		const heightPct = this.enlarged ? this.largeHeight : this.baseHeight;
+		return (heightPct / 100) * Math.max(1, this.view.contentEl.clientHeight);
 	}
 
 	private viewportTopRep(): number {
@@ -269,9 +472,15 @@ export class Minimap {
 	private viewportIndicator(H: number): { top: number; height: number } {
 		const vpTop = this.viewportTopRep();
 		const vpBot = this.viewportBottomRep();
-		const indTop = clamp(vpTop - this.winTop, 0, Math.max(0, H - MIN_INDICATOR));
 		const indH = clamp(vpBot - vpTop, MIN_INDICATOR, H);
-		return { top: indTop, height: indH };
+		const indTop = vpTop - this.winTop;
+		// While the enlarged window is panned without moving the note, the
+		// indicator stays glued to the motionless viewport's position in the
+		// note and is allowed to leave the minimap's bounds.
+		if (this.enlarged && this.manualWindow) {
+			return { top: indTop, height: indH };
+		}
+		return { top: clamp(indTop, 0, Math.max(0, H - MIN_INDICATOR)), height: indH };
 	}
 
 	private renderIdle(H: number): void {
@@ -289,15 +498,15 @@ export class Minimap {
 		const startLine = lineAt(rep.cum, this.winTop);
 		const endLine = lineAt(rep.cum, this.winTop + H);
 		this.linesEl.empty();
-		const W = this.el.clientWidth;
+		const W = this.targetWidthPx();
 		for (let i = startLine; i <= endLine && i < n; i++) {
 			const bar = this.linesEl.createDiv({ cls: `note-minimap-line ${rep.styles[i]?.cls ?? ''}` });
+			bar.dataset.line = String(i);
 			const top = (rep.cum[i] ?? 0) - this.winTop;
-			const width = Math.min(W, Math.max(2, (rep.styles[i]?.len ?? 0) * CHAR_PX));
 			bar.setCssProps({
 				'--nm-line-top': `${top}px`,
 				'--nm-line-height': `${rep.sizes[i] ?? 2}px`,
-				'--nm-line-width': `${width}px`,
+				'--nm-line-width': `${this.barWidth(rep.styles[i]?.len ?? 0, W)}px`,
 			});
 		}
 		this.renderPadding(false);
@@ -312,11 +521,15 @@ export class Minimap {
 	private renderDrag(H: number): void {
 		const rep = this.rep;
 		if (!rep) return;
-		if (!this.interaction.isDragging) {
-			const maxWin = Math.max(0, this.stripTotal() - H);
-			this.winTop = clamp(this.viewportTopRep() - H * CONTEXT_ANCHOR, 0, maxWin);
+		const winH = this.targetHeightPx();
+		// When the enlarged minimap has been panned with the wheel, the strip
+		// window stays where the user left it instead of following the
+		// viewport.
+		if (!this.interaction.isDragging && !this.manualWindow) {
+			const maxWin = Math.max(0, this.stripTotal() - winH);
+			this.winTop = clamp(this.viewportTopRep() - winH * CONTEXT_ANCHOR, 0, maxWin);
 		}
-		const maxWin = Math.max(0, this.stripTotal() - H);
+		const maxWin = Math.max(0, this.stripTotal() - winH);
 		this.winTop = clamp(this.winTop, 0, maxWin);
 		this.el.addClass('note-minimap-dragging');
 		if (this.fullStripSource !== this.lastSource) {
@@ -327,12 +540,15 @@ export class Minimap {
 			'--nm-strip-top': `${-this.winTop}px`,
 			'--nm-strip-height': `${this.stripTotal()}px`,
 			'--nm-fade-top': `${this.winTop}px`,
-			'--nm-fade-bot': `${this.winTop + H}px`,
+			'--nm-fade-bot': `${this.winTop + winH}px`,
+			// The gradual fade band scales with the zoom so it always covers the
+			// same span of the note and grows proportionally with the minimap.
+			'--nm-fade-band': `${40 * (this.enlarged ? this.enlargeFactor : 1)}px`,
 		});
 		this.renderPadding(true);
 		const ind = this.interaction.isDragging
 			? this.interaction.dragIndicator
-			: this.viewportIndicator(H);
+			: this.viewportIndicator(winH);
 		this.viewportEl.show();
 		this.viewportEl.setCssProps({
 			'--nm-vp-top': `${ind.top}px`,
@@ -378,17 +594,27 @@ export class Minimap {
 		});
 	}
 
+	private barWidth(len: number, W: number): number {
+		const zoom = this.enlarged ? this.enlargeFactor : 1;
+		return Math.min(W, Math.max(2, len * CHAR_PX * zoom));
+	}
+
 	private buildFullStrip(rep: Representation): void {
 		this.linesEl.empty();
-		const W = this.el.clientWidth;
+		const W = this.targetWidthPx();
 		for (let i = 0; i < rep.styles.length; i++) {
 			const bar = this.linesEl.createDiv({ cls: `note-minimap-line ${rep.styles[i]?.cls ?? ''}` });
-			const width = Math.min(W, Math.max(2, (rep.styles[i]?.len ?? 0) * CHAR_PX));
+			bar.dataset.line = String(i);
 			bar.setCssProps({
 				'--nm-line-top': `${rep.cum[i] ?? 0}px`,
 				'--nm-line-height': `${rep.sizes[i] ?? 2}px`,
-				'--nm-line-width': `${width}px`,
+				'--nm-line-width': `${this.barWidth(rep.styles[i]?.len ?? 0, W)}px`,
 			});
+			const heading = rep.styles[i]?.heading;
+			if (this.enlarged && heading && heading.text) {
+				bar.dataset.heading = heading.text;
+				bar.dataset.level = String(heading.level);
+			}
 		}
 	}
 }

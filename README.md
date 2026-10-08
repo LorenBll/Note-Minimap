@@ -35,9 +35,15 @@ Adds a code-minimap style sidebar to each open markdown note for position awaren
 - Shows the full representation with faded overflow on hover. When the pointer enters the minimap, the full-note representation is displayed and the parts outside the minimap window are faded, gradually transitioning back to full opacity at the window edges.
   - Why: Hovering previews the whole note's structure without committing to navigation.
   - How: Move the pointer over the minimap; leave it to return to the idle view.
-- Scrolls with the mouse wheel or trackpad. Scrolling the wheel over the minimap scrolls the note by the corresponding amount, scaled in proportion to the note tab's viewport size, so a larger viewport traverses the note faster and a smaller one more slowly.
-  - Why: The wheel is a familiar way to traverse long content, and the minimap makes each scroll gesture move through the note; adapting the speed to the viewport keeps the gesture consistent as the tab is resized.
-  - How: Hover the minimap and scroll the wheel (or swipe on a trackpad). The speed adapts automatically; no configuration is needed.
+- Enlarges the minimap on demand. While the pointer is over the minimap and the configured enlarge key is held, the minimap grows by a configurable percentage, animates smoothly to its new size, moves to the vertical centre of the tab, and stays on its configured side. The title bars and line bars enlarge at the same time, in an animation simultaneous with the minimap's own growth, so the enlarged view shows the same span of the note at a larger size instead of simply showing more of it.
+  - Why: A larger, centred view makes a note's fine structure easier to read, while the normal size keeps the idle minimap unobtrusive.
+  - How: Choose the **Enlarge key** and the **Enlargement** percentage in the settings. Hold that key and move the pointer over the minimap; release the key or leave the minimap to return to the normal size. While enlarged, scroll the wheel over the minimap to pan its window without moving the note; the viewport indicator stays at the viewport's position in the note, even when that lies outside the minimap's bounds.
+- Shows title text in a tooltip while the minimap is enlarged. While the enlarge key is held, hovering a title bar for a heading at or above the configured **Title tooltip level** displays a tooltip beside the bar with the heading's text, with inline markdown removed.
+  - Why: The coloured title bars show where titles are, but not what they say; the tooltip makes titles identifiable while navigating the enlarged minimap.
+  - How: Enlarge the minimap and hover a title bar whose heading level is at or below the configured **Title tooltip level**. Click such a title bar to scroll the note so the clicked title ends up at the top of the viewport.
+- Scrolls with the mouse wheel or trackpad. Scrolling the wheel over the minimap at normal size scrolls the note by the corresponding amount, scaled in proportion to the note tab's viewport size, so a larger viewport traverses the note faster and a smaller one more slowly. While the minimap is enlarged, the wheel instead pans the minimap's own window and leaves the note's viewport untouched.
+  - Why: The wheel is a familiar way to traverse long content, and the minimap makes each scroll gesture move through the note; adapting the speed to the viewport keeps the gesture consistent as the tab is resized. In enlarged mode the note should stay put while the minimap window moves, so clicking a title then jumps the note to it.
+  - How: Hover the minimap and scroll the wheel (or swipe on a trackpad) to traverse the note at normal size. Enlarge the minimap to pan its window instead; the panning is deliberately slow so each gesture positions the window precisely. No configuration is needed.
 - Navigates by dragging. Pressing and dragging on the minimap scrolls the note to the corresponding position, with the viewport centred on the click point. A viewport indicator tracks the current location on the minimap's representation.
   - Why: Long notes take many wheel or scrollbar drags to traverse; dragging the minimap jumps to any part quickly.
   - How: Press anywhere on the minimap and drag. The note scrolls while dragging; when the viewport indicator reaches the top or bottom of the currently rendered portion, the minimap pans to reveal the following parts. The panning speed is proportionate to the viewport size, so a smaller viewport pans more slowly and the location stays easy to track.
@@ -78,8 +84,10 @@ No additional configuration is required.
 3. Open or create a markdown note. A minimap appears on the side of the tab.
 4. Scroll the note to see the viewport indicator follow the current section.
 5. Hover over the minimap to preview the full note; scroll the wheel over it to traverse the note.
-6. Drag on the minimap to navigate; the note scrolls and the minimap pans as needed.
-7. To hide the minimap in reading mode or for specific notes, adjust **Show minimap in reading mode** and **Exclusions** in the settings.
+6. Hold the enlarge key (default **Shift**) while hovering the minimap to enlarge it, centre it vertically, and scale up the bars; release the key to return to the normal size. While enlarged, hover a title bar to see its text and scroll the wheel to pan the minimap window without moving the note.
+7. While enlarged, click a title bar to scroll the note so the clicked title ends up at the top of the viewport.
+8. Drag on the minimap to navigate; the note scrolls and the minimap pans as needed.
+9. To hide the minimap in reading mode or for specific notes, adjust **Show minimap in reading mode** and **Exclusions** in the settings.
 
 ## Build
 
@@ -114,6 +122,9 @@ All settings are in the plugin's settings tab and take effect immediately.
 | `Minimap height` | `60` | Height of the minimap as a percentage of the note tab height. The effective height never exceeds the tab height above the vertical offset. |
 | `Vertical offset` | `5` | Offset of the minimap from the top border of the note tab, as a percentage of the note tab height. The offset is applied to the point selected by `Vertical offset anchor`. |
 | `Vertical offset anchor` | `Top` | Point of the minimap from which the vertical offset is measured: the minimap top, centre, or bottom. The offset is always measured from the top border of the note tab. |
+| `Enlarge key` | `Shift` | Modifier key that, while held with the pointer over the minimap, enlarges it. One of `Shift`, `Control`, `Alt`, or `Meta`. |
+| `Enlargement` | `50` | Percentage by which the minimap grows while the enlarge key is held. The title and line bars scale with the enlargement. The enlarged minimap animates to its new size, stays vertically centred, and remains on its configured side. |
+| `Title tooltip level` | `3` | Deepest heading level that shows a tooltip while the minimap is enlarged. Level `3` shows tooltips for H1, H2, and H3 titles. |
 | `Excluded files and folders` | `(none)` | Paths or glob patterns of files and folders that never show a minimap. Patterns ending with `/` match a folder and everything inside it. |
 
 ## Compatibility

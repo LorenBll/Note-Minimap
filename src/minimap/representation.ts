@@ -1,6 +1,12 @@
+export interface LineHeading {
+	level: number;
+	text: string;
+}
+
 export interface LineStyle {
 	cls: string;
 	len: number;
+	heading?: LineHeading;
 }
 
 export interface Representation {
@@ -23,6 +29,7 @@ export const LINE_PX = 2;
 export function buildRepresentation(
 	source: string,
 	geometry: LineGeometry | null,
+	zoom = 1,
 ): Representation {
 	const raw = source.replace(/\r\n/g, '\n');
 	const lines = raw.split('\n');
@@ -42,7 +49,7 @@ export function buildRepresentation(
 	const cum: number[] = [];
 	const sizes: number[] = [];
 	if (geometry && geometry.tops.length === n && geometry.heights.length === n) {
-		const scale = LINE_PX / Math.max(1, geometry.unitHeight);
+		const scale = (LINE_PX * zoom) / Math.max(1, geometry.unitHeight);
 		for (let i = 0; i < n; i++) {
 			cum.push((geometry.tops[i] ?? 0) * scale);
 			sizes.push(Math.max(1, (geometry.heights[i] ?? 0) * scale));
@@ -55,10 +62,10 @@ export function buildRepresentation(
 	let total = 0;
 	for (let i = 0; i < n; i++) {
 		cum.push(total);
-		sizes.push(LINE_PX);
-		total += LINE_PX;
+		sizes.push(LINE_PX * zoom);
+		total += LINE_PX * zoom;
 	}
-	return { styles, cum, sizes, total, scale: 1 };
+	return { styles, cum, sizes, total, scale: zoom };
 }
 
 // Returns the index of the last line of a leading YAML frontmatter block, or
@@ -72,6 +79,20 @@ function frontmatterRange(lines: string[]): number {
 	return -1;
 }
 
+// Heading text without the leading hashes or inline markdown syntax, used for
+// the tooltip shown while the minimap is enlarged.
+function plainTitle(raw: string): string {
+	return raw
+		.replace(/^#+\s*/, '')
+		.replace(/\s*#+\s*$/, '')
+		.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+		.replace(/`([^`]*)`/g, '$1')
+		.replace(/[*_~]/g, '')
+		.replace(/\\([#*_`[\]~])/g, '$1')
+		.trim();
+}
+
 function classify(line: string, inCode: boolean): LineStyle {
 	const t = line.trim();
 	const len = line.replace(/\t/g, '  ').length;
@@ -79,7 +100,11 @@ function classify(line: string, inCode: boolean): LineStyle {
 	if (t === '') return { cls: 'nm-blank', len: 0 };
 	if (/^#{1,6}\s/.test(t)) {
 		const level = Math.min(6, t.match(/^#+/)?.length ?? 1);
-		return { cls: `nm-h${level}`, len };
+		return {
+			cls: `nm-h${level}`,
+			len,
+			heading: { level, text: plainTitle(t) },
+		};
 	}
 	if (/^>\s?/.test(t)) return { cls: 'nm-quote', len };
 	if (/^\s*(?:[-*+]|\d+[.)])\s/.test(t)) return { cls: 'nm-list', len };
