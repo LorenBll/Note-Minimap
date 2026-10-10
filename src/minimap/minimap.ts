@@ -215,14 +215,16 @@ export class Minimap {
 	}
 
 	// Hint shown beside the minimap while the pointer is over it at normal
-	// size, telling the user which key zooms it.
-	showZoomHint(): void {
+	// size, telling the user which key zooms it. It is placed at the cursor's
+	// height.
+	showZoomHint(topPx: number): void {
 		if (!this.shouldShowZoomHint()) return;
 		const key = ZOOM_KEY_LABELS[this.plugin.settings.zoomKey];
 		const text = `Hold ${key} to Zoom`;
 		const tip = this.hintEl ?? this.el.createDiv({ cls: 'note-minimap-zoom-hint' });
 		this.hintEl = tip;
 		if (tip.getText() !== text) tip.setText(text);
+		tip.style.top = `${topPx}px`;
 		tip.addClass('note-minimap-zoom-hint-visible');
 	}
 

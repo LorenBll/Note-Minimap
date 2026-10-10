@@ -90,6 +90,7 @@ export class MinimapInteraction {
 		this.capturePoint(e);
 		if (!this.dragging) {
 			this.updateTooltip(e.target);
+			this.updateZoomHint();
 			return;
 		}
 		if (e.pointerId !== this.pointerId) return;
@@ -176,13 +177,18 @@ export class MinimapInteraction {
 	}
 
 	// While the pointer is over the minimap at normal size, a hint beside the
-	// minimap explains how to zoom it.
+	// minimap explains how to zoom it, placed at the cursor's height.
 	private updateZoomHint(): void {
 		if (this.hovering && !this.mm.isZoomed() && this.mm.shouldShowZoomHint()) {
-			this.mm.showZoomHint();
+			this.mm.showZoomHint(this.pointerTopPx());
 		} else {
 			this.mm.hideZoomHint();
 		}
+	}
+
+	private pointerTopPx(): number {
+		const rect = this.mm.el.getBoundingClientRect();
+		return this.lastClientY - rect.top;
 	}
 
 	// While the minimap is zoomed, hovering a title bar at or above the

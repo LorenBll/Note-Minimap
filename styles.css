@@ -159,10 +159,9 @@
 }
 
 /* Hint shown beside the minimap while the pointer is over it at normal size,
-   positioned at the minimap's vertical centre. */
+   positioned at the cursor's height. */
 .note-minimap-zoom-hint {
 	position: absolute;
-	top: 50%;
 	z-index: var(--layer-tooltip);
 	max-width: 280px;
 	padding: 4px 8px;
