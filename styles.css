@@ -21,7 +21,7 @@
 	-webkit-user-select: none;
 	cursor: pointer;
 	/* Layer promotion prevents the masked strip from being re-rasterised on
-	   every frame of the enlargement animation, which would flash its fade. */
+	   every frame of the zoom animation, which would flash its fade. */
 	will-change: transform;
 	backface-visibility: hidden;
 }
@@ -36,10 +36,10 @@
 	right: 0;
 }
 
-/* The enlarged minimap overlaps the note text, so give it a raised surface to
-   stay legible while the enlarge key is held. The surface also stays on while
+/* The zoomed minimap overlaps the note text, so give it a raised surface to
+   stay legible while the zoom key is held. The surface also stays on while
    the scale animation plays so shrinking minimaps keep it until they settle. */
-.note-minimap.note-minimap-enlarged,
+.note-minimap.note-minimap-zoomed,
 .note-minimap.note-minimap-animating {
 	background: var(--background-primary);
 	border-radius: var(--radius-m);
@@ -78,7 +78,7 @@
 }
 
 /* The strip renders the note's lines as bars; it scales with the whole
-   minimap element during enlargement, so it needs no transform of its own.
+   minimap element during zooming, so it needs no transform of its own.
    Its own layer keeps the masked fade composited instead of flickering. */
 .note-minimap-lines {
 	position: absolute;
@@ -125,7 +125,7 @@
 	box-sizing: border-box;
 }
 
-/* Title tooltip shown beside a title bar while the minimap is enlarged. */
+/* Title tooltip shown beside a title bar while the minimap is zoomed. */
 .note-minimap-title-tooltip {
 	position: absolute;
 	z-index: var(--layer-tooltip);
@@ -155,6 +155,41 @@
 }
 
 .note-minimap.note-minimap-left .note-minimap-title-tooltip {
+	left: calc(100% + 8px);
+}
+
+/* Hint shown beside the minimap while the pointer is over it at normal size,
+   positioned at the minimap's vertical centre. */
+.note-minimap-zoom-hint {
+	position: absolute;
+	top: 50%;
+	z-index: var(--layer-tooltip);
+	max-width: 280px;
+	padding: 4px 8px;
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+	transform: translateY(-50%);
+	display: none;
+}
+
+.note-minimap-zoom-hint.note-minimap-zoom-hint-visible {
+	display: block;
+}
+
+.note-minimap.note-minimap-right .note-minimap-zoom-hint {
+	right: calc(100% + 8px);
+}
+
+.note-minimap.note-minimap-left .note-minimap-zoom-hint {
 	left: calc(100% + 8px);
 }
 

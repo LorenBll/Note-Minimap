@@ -26,11 +26,20 @@ export default class NoteMinimapPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<NoteMinimapSettings>,
-		);
+		const data = (await this.loadData()) as Partial<NoteMinimapSettings> & {
+			enlargeKey?: NoteMinimapSettings['zoomKey'];
+			enlargePercent?: number;
+		};
+		// Migrate the pre-1.3.1 "enlarge" settings to their "zoom" names.
+		if (data.enlargeKey !== undefined && data.zoomKey === undefined) {
+			data.zoomKey = data.enlargeKey;
+		}
+		if (data.enlargePercent !== undefined && data.zoomPercent === undefined) {
+			data.zoomPercent = data.enlargePercent;
+		}
+		delete data.enlargeKey;
+		delete data.enlargePercent;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 		if (this.settings.height > 100) {
 			// Migrate 1.0.x pixel-based dimensions to percentage-based dimensions.
 			this.settings.width = DEFAULT_SETTINGS.width;

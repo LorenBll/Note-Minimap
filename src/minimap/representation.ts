@@ -80,7 +80,7 @@ function frontmatterRange(lines: string[]): number {
 }
 
 // Heading text without the leading hashes or inline markdown syntax, used for
-// the tooltip shown while the minimap is enlarged.
+// the tooltip shown while the minimap is zoomed.
 function plainTitle(raw: string): string {
 	return raw
 		.replace(/^#+\s*/, '')

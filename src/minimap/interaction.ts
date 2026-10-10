@@ -4,9 +4,9 @@ function clamp(v: number, lo: number, hi: number): number {
 	return Math.max(lo, Math.min(hi, v));
 }
 
-// Enlarged-mode wheel panning is deliberately slow so the minimap window can
+// Zoomed-mode wheel panning is deliberately slow so the minimap window can
 // be positioned precisely with each gesture.
-const ENLARGED_WHEEL_SPEED = 0.25;
+const ZOOMED_WHEEL_SPEED = 0.25;
 
 export class MinimapInteraction {
 	private dragging = false;
@@ -63,9 +63,9 @@ export class MinimapInteraction {
 	private onPointerDown = (e: PointerEvent): void => {
 		if (e.button !== 0) return;
 		e.preventDefault();
-		// Clicking a title while the minimap is enlarged jumps the note so the
+		// Clicking a title while the minimap is zoomed jumps the note so the
 		// clicked title ends up at the top of the viewport, instead of dragging.
-		if (this.mm.isEnlarged()) {
+		if (this.mm.isZoomed()) {
 			const raw = e.target instanceof HTMLElement ? e.target.closest('.note-minimap-line') : null;
 			const bar = raw instanceof HTMLElement ? raw : null;
 			const line = bar ? Number(bar.dataset.line) : NaN;
@@ -114,7 +114,7 @@ export class MinimapInteraction {
 		if (this.hovering) return;
 		this.hovering = true;
 		this.capturePoint(e);
-		this.syncEnlarged();
+		this.syncZoomed();
 		this.updateTooltip(e.target);
 		this.mm.render();
 	};
@@ -122,7 +122,7 @@ export class MinimapInteraction {
 	private onPointerLeave = (): void => {
 		this.hovering = false;
 		this.mm.hideTitleTooltip();
-		this.syncEnlarged();
+		this.syncZoomed();
 		if (!this.dragging) this.mm.render();
 	};
 
@@ -130,19 +130,19 @@ export class MinimapInteraction {
 		const held = this.modifierHeld(e);
 		if (held === this.keyHeld) return;
 		this.keyHeld = held;
-		this.syncEnlarged();
+		this.syncZoomed();
 	};
 
 	private onWindowBlur = (): void => {
 		if (!this.keyHeld) return;
 		this.keyHeld = false;
-		this.syncEnlarged();
+		this.syncZoomed();
 	};
 
-	// The enlarge key configured in settings: only modifier keys are supported,
+	// The zoom key configured in settings: only modifier keys are supported,
 	// since they can be held on their own without typing a character.
 	private modifierHeld(e: KeyboardEvent): boolean {
-		switch (this.mm.getEnlargeKey()) {
+		switch (this.mm.getZoomKey()) {
 			case 'control':
 				return e.ctrlKey;
 			case 'alt':
@@ -159,13 +159,14 @@ export class MinimapInteraction {
 		this.lastClientY = e.clientY;
 	}
 
-	private syncEnlarged(): void {
-		this.mm.setEnlarged(this.hovering && this.keyHeld);
-		if (this.hovering && this.mm.isEnlarged()) {
+	private syncZoomed(): void {
+		this.mm.setZoomed(this.hovering && this.keyHeld);
+		this.updateZoomHint();
+		if (this.hovering && this.mm.isZoomed()) {
 			// Run after the scheduled re-render has rebuilt the title bars so
 			// the tooltip can appear immediately when the key is pressed.
 			window.requestAnimationFrame(() => {
-				if (this.hovering && this.mm.isEnlarged()) {
+				if (this.hovering && this.mm.isZoomed()) {
 					this.updateTooltip(
 						document.elementFromPoint(this.lastClientX, this.lastClientY),
 					);
@@ -174,10 +175,17 @@ export class MinimapInteraction {
 		}
 	}
 
-	// While the minimap is enlarged, hovering a title bar at or above the
+	// While the pointer is over the minimap at normal size, a hint beside the
+	// minimap explains how to zoom it.
+	private updateZoomHint(): void {
+		if (this.hovering && !this.mm.isZoomed()) this.mm.showZoomHint();
+		else this.mm.hideZoomHint();
+	}
+
+	// While the minimap is zoomed, hovering a title bar at or above the
 	// configured title tooltip level shows that title's text beside the bar.
 	private updateTooltip(target: EventTarget | null): void {
-		if (!this.mm.isEnlarged()) {
+		if (!this.mm.isZoomed()) {
 			this.mm.hideTitleTooltip();
 			return;
 		}
@@ -199,14 +207,14 @@ export class MinimapInteraction {
 		const rep = this.mm.getRep();
 		if (!rep || rep.scale <= 0) return;
 		e.preventDefault();
-		if (this.mm.isEnlarged()) {
-			// While enlarged, the wheel pans the minimap's own window instead of
+		if (this.mm.isZoomed()) {
+			// While zoomed, the wheel pans the minimap's own window instead of
 			// scrolling the note, so the viewport stays put. The panning is slow
 			// so the window can be positioned precisely.
 			this.mm.hideTitleTooltip();
 			const H = this.mm.targetHeightPx();
 			const maxWin = Math.max(0, this.mm.getStripTotal() - H);
-			const delta = e.deltaY * ENLARGED_WHEEL_SPEED;
+			const delta = e.deltaY * ZOOMED_WHEEL_SPEED;
 			this.mm.setWinTop(clamp(this.mm.getWinTop() + delta, 0, maxWin));
 			this.mm.setManualWindow(true);
 			this.mm.render();
@@ -220,7 +228,7 @@ export class MinimapInteraction {
 	private speedFactor(): number {
 		const count = Math.max(1, this.mm.getHost().getVisibleLineCount());
 		let factor = Math.max(0.25, Math.min(4, count / 20));
-		// While the minimap is enlarged, pan faster in proportion to its extra
+		// While the minimap is zoomed, pan faster in proportion to its extra
 		// height so the viewport indicator advances the same fraction of the
 		// (now taller) window per gesture as it does at normal size.
 		const baseH = this.mm.getBaseHeightPx();
