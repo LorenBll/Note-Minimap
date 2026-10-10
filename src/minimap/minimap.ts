@@ -102,6 +102,7 @@ export class Minimap {
 		this.setupResizeObserver();
 		this.applyGeometry();
 		this.render();
+		if (!this.plugin.settings.showZoomHint) this.hideZoomHint();
 	}
 
 	refresh(): void {
@@ -140,6 +141,10 @@ export class Minimap {
 
 	getZoomKey(): 'shift' | 'control' | 'alt' | 'meta' {
 		return this.plugin.settings.zoomKey;
+	}
+
+	shouldShowZoomHint(): boolean {
+		return this.plugin.settings.showZoomHint;
 	}
 
 	getTitleTooltipLevel(): number {
@@ -212,6 +217,7 @@ export class Minimap {
 	// Hint shown beside the minimap while the pointer is over it at normal
 	// size, telling the user which key zooms it.
 	showZoomHint(): void {
+		if (!this.shouldShowZoomHint()) return;
 		const key = ZOOM_KEY_LABELS[this.plugin.settings.zoomKey];
 		const text = `Hold ${key} to Zoom`;
 		const tip = this.hintEl ?? this.el.createDiv({ cls: 'note-minimap-zoom-hint' });

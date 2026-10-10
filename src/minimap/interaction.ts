@@ -178,8 +178,11 @@ export class MinimapInteraction {
 	// While the pointer is over the minimap at normal size, a hint beside the
 	// minimap explains how to zoom it.
 	private updateZoomHint(): void {
-		if (this.hovering && !this.mm.isZoomed()) this.mm.showZoomHint();
-		else this.mm.hideZoomHint();
+		if (this.hovering && !this.mm.isZoomed() && this.mm.shouldShowZoomHint()) {
+			this.mm.showZoomHint();
+		} else {
+			this.mm.hideZoomHint();
+		}
 	}
 
 	// While the minimap is zoomed, hovering a title bar at or above the

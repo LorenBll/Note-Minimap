@@ -10,6 +10,7 @@ export interface NoteMinimapSettings {
 	verticalAnchor: 'top' | 'centre' | 'bottom';
 	showInReadingMode: boolean;
 	zoomKey: 'shift' | 'control' | 'alt' | 'meta';
+	showZoomHint: boolean;
 	zoomPercent: number;
 	titleTooltipLevel: number;
 	excludedFiles: string[];
@@ -23,6 +24,7 @@ export const DEFAULT_SETTINGS: NoteMinimapSettings = {
 	verticalAnchor: 'top',
 	showInReadingMode: true,
 	zoomKey: 'shift',
+	showZoomHint: true,
 	zoomPercent: 50,
 	titleTooltipLevel: 3,
 	excludedFiles: [],
@@ -130,6 +132,15 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 							},
 						},
 					},
+					{
+						name: 'Show zoom hint',
+						desc: 'When enabled, a hint beside the minimap tells you which key to hold to zoom it.',
+						control: {
+							type: 'toggle',
+							key: 'showZoomHint',
+							defaultValue: true,
+						},
+					},
 {
 				name: 'Zoom',
 				desc: 'Percentage by which the minimap grows while the zoom key is held. The zoomed minimap stays vertically centred and on its configured side.',
@@ -195,6 +206,7 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 		else if (key === 'verticalAnchor')
 			settings.verticalAnchor = value as NoteMinimapSettings['verticalAnchor'];
 		else if (key === 'zoomKey') settings.zoomKey = value as NoteMinimapSettings['zoomKey'];
+		else if (key === 'showZoomHint') settings.showZoomHint = value as boolean;
 		else if (key === 'zoomPercent') settings.zoomPercent = value as number;
 		else if (key === 'titleTooltipLevel') settings.titleTooltipLevel = value as number;
 		this.plugin.updateSettings();
