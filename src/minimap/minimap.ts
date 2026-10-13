@@ -206,7 +206,7 @@ export class Minimap {
 		const tip = this.tooltipEl ?? this.el.createDiv({ cls: 'note-minimap-title-tooltip' });
 		this.tooltipEl = tip;
 		if (tip.getText() !== text) tip.setText(text);
-		tip.style.top = `${topPx}px`;
+		tip.setCssProps({ '--nm-tip-top': `${topPx}px` });
 		tip.addClass('note-minimap-title-tooltip-visible');
 	}
 
@@ -224,7 +224,7 @@ export class Minimap {
 		const tip = this.hintEl ?? this.el.createDiv({ cls: 'note-minimap-zoom-hint' });
 		this.hintEl = tip;
 		if (tip.getText() !== text) tip.setText(text);
-		tip.style.top = `${topPx}px`;
+		tip.setCssProps({ '--nm-hint-top': `${topPx}px` });
 		tip.addClass('note-minimap-zoom-hint-visible');
 	}
 
@@ -319,9 +319,11 @@ export class Minimap {
 		const width = this.zoomed ? this.largeWidth : this.baseWidth;
 		const height = this.zoomed ? this.largeHeight : this.baseHeight;
 		const top = this.zoomed ? this.largeTop : this.baseTop;
-		this.el.style.width = `${width}%`;
-		this.el.style.height = `${height}%`;
-		this.el.style.top = `${top}%`;
+		this.el.setCssProps({
+			'--nm-width': `${width}%`,
+			'--nm-height': `${height}%`,
+			'--nm-top': `${top}%`,
+		});
 	}
 
 	private onScroll = (): void => {
@@ -420,9 +422,11 @@ export class Minimap {
 		const dy = ((b.ft - b.tt) / 100) * ch;
 		const originX = this.plugin.settings.side === 'left' ? 0 : b.tw;
 		this.cancelZoomAnim();
-		this.el.style.transformOrigin = `${originX}px 0px`;
 		const from = `translateY(${dy}px) scale(${sx}, ${sy})`;
-		this.el.style.transform = from;
+		this.el.setCssProps({
+			'--nm-anim-origin': `${originX}px 0px`,
+			'--nm-anim-transform': from,
+		});
 		this.el.addClass('note-minimap-animating');
 		this.pendingAnimRaf = window.requestAnimationFrame(() => {
 			this.pendingAnimRaf = 0;
@@ -436,8 +440,8 @@ export class Minimap {
 				if (this.elAnim !== anim) return;
 				this.elAnim = null;
 				this.el.removeClass('note-minimap-animating');
-				this.el.style.removeProperty('transform');
-				this.el.style.removeProperty('transform-origin');
+				this.el.style.removeProperty('--nm-anim-transform');
+				this.el.style.removeProperty('--nm-anim-origin');
 			};
 			anim.onfinish = cleanup;
 			anim.oncancel = cleanup;
@@ -456,8 +460,8 @@ export class Minimap {
 			this.elAnim = null;
 			anim.cancel();
 			this.el.removeClass('note-minimap-animating');
-			this.el.style.removeProperty('transform');
-			this.el.style.removeProperty('transform-origin');
+			this.el.style.removeProperty('--nm-anim-transform');
+			this.el.style.removeProperty('--nm-anim-origin');
 		}
 	}
 
