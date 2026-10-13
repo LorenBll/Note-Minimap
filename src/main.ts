@@ -15,10 +15,14 @@ export default class NoteMinimapPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		this.compileExcludedPatterns();
 		this.manager = new MinimapManager(this);
-		this.manager.attach();
 		this.addSettingTab(new NoteMinimapSettingTab(this.app, this));
+		// Defer attaching the manager until the workspace is ready. Attaching
+		// reconciles every open markdown leaf, building a minimap and measuring
+		// layout for each, so keeping it out of onload avoids blocking startup.
+		this.app.workspace.onLayoutReady(() => {
+			this.manager.attach();
+		});
 	}
 
 	onunload() {
