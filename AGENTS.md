@@ -2,7 +2,7 @@
 
 Plugin-wide standards (folder structure, build tooling, manifest rules, coding conventions, security, and versioning) are defined in the upper AGENTS.md's "Obsidian Plugin Standard" and are not repeated here.
 
-Developer documentation: [README-DEV.md](README-DEV.md). User documentation: [README.md](README.md).
+Further documentation about the project can be found in [README-DEV.md](README-DEV.md). User documentation is in [README.md](README.md).
 
 ## UX & copy guidelines (for UI text, commands, settings)
 
