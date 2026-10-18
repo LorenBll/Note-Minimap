@@ -2,6 +2,8 @@
 
 Adds a code-minimap style sidebar to each open markdown note for position awareness and fast scrolling.
 
+Developer documentation: [README-DEV.md](README-DEV.md).
+
 ## Table of Contents
 
 - [Features](#features)
@@ -66,12 +68,19 @@ Adds a code-minimap style sidebar to each open markdown note for position awaren
 ## Requirements
 
 - Obsidian 1.13.7 or later (`minAppVersion` is `1.13.7`).
-- Node.js 18 or later and npm for development.
+- Node.js 18 or later and npm for development. The CI workflows build and lint on Node.js 20, 22, and 24.
+- No core Obsidian plugins must be enabled. The minimap attaches to Obsidian's built-in markdown view.
 
 ## Setup
 
 1. Install Node.js 18 or later.
-2. Clone the repository.
+2. Clone the repository and enter it:
+
+```bash
+git clone https://github.com/LorenBll/Note-Minimap.git
+cd Note-Minimap
+```
+
 3. Install dependencies:
 
 ```bash
@@ -119,22 +128,23 @@ All settings are in the plugin's settings tab and take effect immediately.
 
 | Setting | Default | Effect |
 | --- | --- | --- |
-| `Minimap side` | `Right` | Side of the note tab where the minimap is displayed. |
+| `Minimap side` | `Right` | Side of the note tab where the minimap is displayed: `Left` or `Right`. |
 | `Show minimap in reading mode` | `Enabled` | Whether the minimap is displayed when the note is shown in reading mode. |
-| `Minimap width` | `15` | Width of the minimap as a percentage of the note tab width. |
-| `Minimap height` | `60` | Height of the minimap as a percentage of the note tab height. The effective height never exceeds the tab height above the vertical offset. |
-| `Vertical offset` | `5` | Offset of the minimap from the top border of the note tab, as a percentage of the note tab height. The offset is applied to the point selected by `Vertical offset anchor`. |
-| `Vertical offset anchor` | `Top` | Point of the minimap from which the vertical offset is measured: the minimap top, centre, or bottom. The offset is always measured from the top border of the note tab. |
+| `Minimap width` | `15` | Width of the minimap as a percentage of the note tab width. Slider range 5 to 50. |
+| `Minimap height` | `60` | Height of the minimap as a percentage of the note tab height. Slider range 10 to 100. The effective height never exceeds the tab height available above or below the vertical offset. |
+| `Vertical offset` | `5` | Offset of the minimap from the top border of the note tab, as a percentage of the note tab height. Slider range 0 to 50. The offset is applied to the point selected by `Vertical offset anchor`. |
+| `Vertical offset anchor` | `Top` | Point of the minimap from which the vertical offset is measured: `Top`, `Centre`, or `Bottom`. The offset is always measured from the top border of the note tab. |
 | `Zoom key` | `Shift` | Modifier key that, while held with the pointer over the minimap, zooms it. One of `Shift`, `Control`, `Alt`, or `Meta`. |
 | `Show zoom hint` | `Enabled` | Whether a hint beside the minimap tells you which key to hold to zoom it. |
-| `Zoom` | `50` | Percentage by which the minimap grows while the zoom key is held. The title and line bars scale with the zoom. The zoomed minimap animates to its new size, stays vertically centred, and remains on its configured side. |
-| `Title tooltip level` | `3` | Deepest heading level that shows a tooltip while the minimap is zoomed. Level `3` shows tooltips for H1, H2, and H3 titles. |
-| `Excluded files and folders` | `(none)` | Paths or glob patterns of files and folders that never show a minimap. Patterns ending with `/` match a folder and everything inside it. |
+| `Zoom` | `50` | Percentage by which the minimap grows while the zoom key is held. Slider range 10 to 200, in steps of 5. The title and line bars scale with the zoom. The zoomed minimap animates to its new size, stays vertically centred, and remains on its configured side. |
+| `Title tooltip level` | `3` | Deepest heading level that shows a tooltip while the minimap is zoomed. Slider range 1 to 6. Level `3` shows tooltips for H1, H2, and H3 titles. |
+| `Excluded files and folders` | `(none)` | Paths or glob patterns of files and folders that never show a minimap. Patterns ending with `/` match a folder and everything inside it. Managed with **Add exclusion** in the settings tab. |
 
 ## Compatibility
 
-- `minAppVersion` is `1.13.7` as declared in `manifest.json`.
-- `isDesktopOnly` is `false`; the plugin does not use desktop-only APIs. Pointer and scroll interactions work on touch devices.
+- `minAppVersion` is `1.13.7`, as declared in `manifest.json`.
+- `isDesktopOnly` is `false`, as declared in `manifest.json`. The plugin uses only cross-platform APIs, and its pointer interactions work with touch as well as with a mouse. Zooming requires the configured modifier key to be held, which a touch-only device cannot do, so the zoom features are reachable only where a keyboard is available.
+- The repository does not declare a separately tested Obsidian version. Development targets the `obsidian` API package pinned in `package.json` (`^1.13.1`).
 - The minimap tracks note edits in source mode and note renders in reading mode.
 
 ## Licence
