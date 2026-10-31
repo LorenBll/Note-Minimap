@@ -275,7 +275,9 @@ export class MinimapInteraction {
 		if (H <= 0 || vpRep >= H) return y;
 		const pinTop = vpRep / 2;
 		const pinBottom = H - vpRep / 2;
-		const f = this.speedFactor();
+		// While zoomed, faded-zone scrolling is deliberately slow, matching the
+		// zoomed wheel-panning speed, so the viewport can be positioned precisely.
+		const f = this.mm.isZoomed() ? this.mm.getZoomedFadeScrollSpeed() : this.speedFactor();
 		if (y < pinTop) return pinTop + (y - pinTop) * f;
 		if (y > pinBottom) return pinBottom + (y - pinBottom) * f;
 		return y;

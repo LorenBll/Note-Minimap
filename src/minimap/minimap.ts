@@ -150,6 +150,10 @@ export class Minimap {
 	getTitleTooltipLevel(): number {
 		return this.plugin.settings.titleTooltipLevel;
 	}
+	
+	getZoomedFadeScrollSpeed(): number {
+		return this.plugin.settings.zoomedFadeScrollSpeed;
+	}
 
 	isZoomed(): boolean {
 		return this.zoomed;

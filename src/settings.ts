@@ -13,6 +13,7 @@ export interface NoteMinimapSettings {
 	showZoomHint: boolean;
 	zoomPercent: number;
 	titleTooltipLevel: number;
+	zoomedFadeScrollSpeed: number;
 	excludedFiles: string[];
 }
 
@@ -27,6 +28,7 @@ export const DEFAULT_SETTINGS: NoteMinimapSettings = {
 	showZoomHint: true,
 	zoomPercent: 50,
 	titleTooltipLevel: 3,
+	zoomedFadeScrollSpeed: 0.25,
 	excludedFiles: [],
 };
 
@@ -165,6 +167,18 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 					displayFormat: (v) => `H${v}`,
 				},
 			},
+			{
+				name: 'Zoomed faded-zone scroll speed',
+				desc: 'Speed at which the viewport moves while dragging in the faded zones of the zoomed minimap. Lower values move more slowly and precisely.',
+				control: {
+					type: 'slider',
+					key: 'zoomedFadeScrollSpeed',
+					min: 0.05,
+					max: 1,
+					step: 0.05,
+					displayFormat: (v) => `${Math.round(v * 100)}%`,
+				},
+			},
 		],
 	},
 			{
@@ -208,6 +222,7 @@ export class NoteMinimapSettingTab extends PluginSettingTab {
 		else if (key === 'zoomKey') settings.zoomKey = value as NoteMinimapSettings['zoomKey'];
 		else if (key === 'showZoomHint') settings.showZoomHint = value as boolean;
 		else if (key === 'zoomPercent') settings.zoomPercent = value as number;
+		else if (key === 'zoomedFadeScrollSpeed') settings.zoomedFadeScrollSpeed = value as number;
 		else if (key === 'titleTooltipLevel') settings.titleTooltipLevel = value as number;
 		this.plugin.updateSettings();
 		return this.plugin.saveSettings();
