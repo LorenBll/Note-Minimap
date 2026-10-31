@@ -36,6 +36,7 @@ jobs:
               with:
                   subject-path: |
                       main.js
+                      manifest.json
                       ${{ steps.styles.outputs.exists == 'true' && 'styles.css' || '' }}
 
             - name: Create release
