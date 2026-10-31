@@ -1,7 +1,4 @@
 # Note-Minimap
-[LorenBll](https://github.com/LorenBll)
-| Zoomed faded-zone scroll speed | 25% | Speed at which the viewport moves while dragging in the faded zones of the zoomed minimap, as a percentage. Slider range 5 to 100. Lower values move more slowly and precisely. |
-# Note-Minimap
 
 Adds a code-minimap style sidebar to each open markdown note for position awareness and fast scrolling.
 
@@ -141,7 +138,6 @@ All settings are in the plugin's settings tab and take effect immediately.
 | `Show zoom hint` | `Enabled` | Whether a hint beside the minimap tells you which key to hold to zoom it. |
 | `Zoom` | `50` | Percentage by which the minimap grows while the zoom key is held. Slider range 10 to 200, in steps of 5. The title and line bars scale with the zoom. The zoomed minimap animates to its new size, stays vertically centred, and remains on its configured side. |
 | `Title tooltip level` | `3` | Deepest heading level that shows a tooltip while the minimap is zoomed. Slider range 1 to 6. Level `3` shows tooltips for H1, H2, and H3 titles. |
-| Zoomed faded-zone scroll speed | 25% | Speed at which the viewport moves while dragging in the faded zones of the zoomed minimap, as a percentage. Slider range 5 to 100. Lower values move more slowly and precisely. |
 | `Excluded files and folders` | `(none)` | Paths or glob patterns of files and folders that never show a minimap. Patterns ending with `/` match a folder and everything inside it. Managed with **Add exclusion** in the settings tab. |
 
 ## Compatibility
