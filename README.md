@@ -1,5 +1,7 @@
 # Note-Minimap
 
+![Screenshot](docs/images/screenshot.png)
+
 Adds a code-minimap style sidebar to each open markdown note for position awareness and fast scrolling.
 
 Developer documentation: [README-DEV.md](README-DEV.md).
