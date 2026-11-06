@@ -30,7 +30,7 @@ export default class NoteMinimapPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const data = (await this.loadData()) as Partial<NoteMinimapSettings> & {
+		const data = ((await this.loadData()) ?? {}) as Partial<NoteMinimapSettings> & {
 			enlargeKey?: NoteMinimapSettings['zoomKey'];
 			enlargePercent?: number;
 		};
