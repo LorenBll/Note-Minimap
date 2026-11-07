@@ -60,6 +60,14 @@ export class MinimapInteraction {
 		return this.dragInd;
 	}
 
+	// Recompute the drag indicator after the minimap's zoom changes, so its
+	// size follows the new zoom instead of staying at the value captured when
+	// the drag started.
+	refreshDragIndicator(): void {
+		if (!this.dragging) return;
+		this.applyDrag();
+	}
+
 	private onPointerDown = (e: PointerEvent): void => {
 		if (e.button !== 0) return;
 		e.preventDefault();

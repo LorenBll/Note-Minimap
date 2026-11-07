@@ -186,6 +186,7 @@ export class Minimap {
 		// with no per-element timing to drift.
 		this.render();
 		this.applySizeStyles();
+		this.interaction.refreshDragIndicator();
 		this.scheduleRender();
 	}
 
@@ -510,7 +511,11 @@ export class Minimap {
 	private viewportIndicator(H: number): { top: number; height: number } {
 		const vpTop = this.viewportTopRep();
 		const vpBot = this.viewportBottomRep();
-		const indH = clamp(vpBot - vpTop, MIN_INDICATOR, H);
+		// Scale the minimum indicator height with the zoom factor so a clamped
+		// indicator keeps the same proportion to the minimap while the whole
+		// element is scaled during the zoom animation.
+		const minIndicator = MIN_INDICATOR * (this.zoomed ? this.zoomFactor : 1);
+		const indH = clamp(vpBot - vpTop, minIndicator, H);
 		const indTop = vpTop - this.winTop;
 		// While the zoomed window is panned without moving the note, the
 		// indicator stays glued to the motionless viewport's position in the
