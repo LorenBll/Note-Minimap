@@ -523,7 +523,11 @@ export class Minimap {
 		if (this.zoomed && this.manualWindow) {
 			return { top: indTop, height: indH };
 		}
-		return { top: clamp(indTop, 0, Math.max(0, H - MIN_INDICATOR)), height: indH };
+		// The indicator may not extend beyond the scrollable strip, even when
+		// the minimap is taller than the strip and leaves empty space below
+		// the oblique-lined padding region.
+		const maxTop = Math.max(0, Math.min(H, this.stripTotal()) - indH);
+		return { top: clamp(indTop, 0, maxTop), height: indH };
 	}
 
 	private renderIdle(H: number): void {
@@ -613,6 +617,14 @@ export class Minimap {
 
 	getStripTotal(): number {
 		return this.stripTotal();
+	}
+
+	getZoomFactor(): number {
+		return this.zoomFactor;
+	}
+
+	getMinIndicatorPx(): number {
+		return MIN_INDICATOR * (this.zoomed ? this.zoomFactor : 1);
 	}
 
 	private renderPadding(stripCoords: boolean): void {

@@ -254,6 +254,9 @@ export class MinimapInteraction {
 	}
 
 	private applyDrag(): void {
+		// Dragging repositions the viewport directly, so any previously
+		// panned (manual) window is no longer in effect.
+		this.mm.setManualWindow(false);
 		const H = this.mm.getHeight();
 		const rep = this.mm.getRep();
 		if (!rep || H <= 0 || rep.scale <= 0) return;
@@ -261,12 +264,23 @@ export class MinimapInteraction {
 		const y = this.lastY - rect.top;
 		const yy = clamp(y, 0, H);
 		const vpRep = this.mm.getViewportRepHeight();
-		const indH = clamp(vpRep, 1, H);
+		const indH = clamp(vpRep, this.mm.getMinIndicatorPx(), H);
 		const dy = this.dampPointerY(y, vpRep);
 		const strip = this.mm.getStripTotal();
-		const clickRepY = clamp(this.mm.getWinTop() + dy, 0, Math.max(0, strip - 1));
+		// Keep the viewport within the scrollable strip (content plus the
+		// oblique-lined padding below it): a viewport may not be dragged so
+		// that its top or bottom leaves that space.
+		const clickRepY = clamp(
+			this.mm.getWinTop() + dy,
+			vpRep / 2,
+			Math.max(vpRep / 2, strip - vpRep / 2),
+		);
 		const topRepY = clickRepY - vpRep / 2;
-		const indTop = clamp(yy - indH / 2, 0, Math.max(0, H - indH));
+		const indTop = clamp(
+			yy - indH / 2,
+			0,
+			Math.max(0, Math.min(H, strip) - indH),
+		);
 		this.dragInd = { top: indTop, height: indH };
 		this.mm.scrollToPx(topRepY / rep.scale);
 		const actualTopRep = this.mm.getViewportTopPx() * rep.scale;
