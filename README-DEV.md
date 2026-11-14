@@ -204,7 +204,7 @@ All settings are in the plugin's settings tab and take effect immediately.
 
 0BSD. See [LICENSE](LICENSE).
 
-Copyright (C) 2020-2026 by Dynalist Inc.
+Copyright (C) 2026 by LorenBll.
 
 ## Support
 
